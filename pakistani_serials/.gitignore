@@ -1,0 +1,4 @@
+
+# Release signing: key.properties + upload-keystore.jks are tracked on
+# this repo (user's explicit call, 2026-04-24). Anything else stays out.
+*.keystore

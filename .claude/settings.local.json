@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(bash -c 'bash deploy.sh')",
+      "Bash(bash deploy.sh:*)",
+      "Bash(jq:*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/user/StudioProjects/universal_apps && bash deploy.sh 2>/dev/null || true",
+            "timeout": 300,
+            "statusMessage": "Deploying to production..."
+          }
+        ]
+      }
+    ]
+  }
+}

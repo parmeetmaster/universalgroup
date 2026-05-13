@@ -1,0 +1,81 @@
+{
+  "@@locale": "ur",
+
+  "appName": "پاکستانی سیریلز",
+
+  "homeTabTitle": "گھر",
+  "browseTabTitle": "دیکھیں",
+  "searchTabTitle": "تلاش",
+  "watchlistTabTitle": "میری پسند",
+  "profileTabTitle": "پروفائل",
+
+  "homeBrand": "پاکستانی سیریلز",
+  "homeTop10Today": "آج کے ٹاپ 10 ڈرامے",
+  "homeFeatured": "خاص",
+  "homeSeeAll": "سب دیکھیں",
+  "homePlay": "چلائیں",
+  "homeMyList": "میری پسند",
+
+  "genreAll": "سب",
+  "genreRomance": "رومانس",
+  "genreFamily": "گھریلو",
+  "genreThriller": "تھرلر",
+  "genreComedy": "مزاح",
+  "genreDrama": "ڈرامہ",
+
+  "badgeNew": "نیا",
+  "badgeHD": "ایچ ڈی",
+  "badgeLive": "لائیو",
+  "badgePakistaniSerial": "پاکستانی ڈرامہ",
+
+  "statusNewSeries": "نیا سیریل",
+  "statusOnAir": "نشر ہو رہا ہے",
+  "statusUpcoming": "جلد آنے والا",
+  "statusComplete": "مکمل",
+  "statusComingSoon": "جلد آ رہا ہے",
+  "statusNewEpisodes": "نئی قسطیں",
+
+  "detailPlay": "چلائیں",
+  "detailMyList": "میری پسند",
+  "detailAdded": "شامل ہو گیا",
+  "detailEpisodes": "قسطیں",
+  "detailRelated": "ایسے ہی اور ڈرامے",
+  "detailCast": "اداکار",
+  "detailSeason": "سیزن",
+  "detailNoEpisodesYet": "ابھی کوئی قسط نہیں",
+  "detailEpisodesDroppingSoon": "قسطیں جلد آ رہی ہیں",
+
+  "sourcesTapToPlay": "چلانے کے لیے چھوئیں",
+  "sourcesNoServers": "کوئی سرور نہیں ملا",
+
+  "searchHint": "ڈرامے ڈھونڈیں",
+  "searchNoResults": "کچھ نہیں ملا",
+
+  "watchlistTitle": "میری پسند",
+  "watchlistEmpty": "آپ کی پسند کی فہرست خالی ہے",
+  "watchlistBrowseDramas": "ڈرامے ڈھونڈیں",
+
+  "splashRetry": "دوبارہ کوشش کریں",
+  "splashExit": "بند کریں",
+
+  "settingsTitle": "ترتیبات",
+  "settingsLanguage": "زبان",
+  "settingsTheme": "تھیم",
+  "settingsLogout": "لاگ آؤٹ",
+  "settingsAbout": "ایپ کے بارے میں",
+  "settingsVersion": "ورژن",
+
+  "langEnglish": "English",
+  "langUrdu": "اردو",
+  "langPunjabi": "ਪੰਜਾਬੀ",
+  "langHindi": "हिन्दी",
+
+  "errorGeneric": "کچھ گڑبڑ ہو گئی",
+  "errorNetwork": "انٹرنیٹ نہیں چل رہا",
+  "errorUnauthorized": "دوبارہ سائن ان کریں",
+  "retry": "دوبارہ کریں",
+  "cancel": "رہنے دیں",
+  "ok": "ٹھیک ہے",
+  "loading": "لمحہ بھر ٹھہریں...",
+  "continueWatching": "دیکھنا جاری رکھیں"
+}

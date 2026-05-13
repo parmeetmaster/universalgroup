@@ -1,0 +1,81 @@
+{
+  "@@locale": "en",
+
+  "appName": "Pakistani Serials",
+
+  "homeTabTitle": "Home",
+  "browseTabTitle": "Browse",
+  "searchTabTitle": "Search",
+  "watchlistTabTitle": "My List",
+  "profileTabTitle": "Profile",
+
+  "homeBrand": "PAKISTANI SERIALS",
+  "homeTop10Today": "Top 10 in Pakistan Today",
+  "homeFeatured": "FEATURED",
+  "homeSeeAll": "See all",
+  "homePlay": "Play",
+  "homeMyList": "My List",
+
+  "genreAll": "All",
+  "genreRomance": "Romance",
+  "genreFamily": "Family",
+  "genreThriller": "Thriller",
+  "genreComedy": "Comedy",
+  "genreDrama": "Drama",
+
+  "badgeNew": "NEW",
+  "badgeHD": "HD",
+  "badgeLive": "LIVE",
+  "badgePakistaniSerial": "PAKISTANI SERIAL",
+
+  "statusNewSeries": "New Series",
+  "statusOnAir": "On Air",
+  "statusUpcoming": "Upcoming",
+  "statusComplete": "Complete",
+  "statusComingSoon": "Coming Soon",
+  "statusNewEpisodes": "New Episodes",
+
+  "detailPlay": "Play",
+  "detailMyList": "My List",
+  "detailAdded": "Added",
+  "detailEpisodes": "Episodes",
+  "detailRelated": "More Like This",
+  "detailCast": "Cast",
+  "detailSeason": "Season",
+  "detailNoEpisodesYet": "No Episodes Yet",
+  "detailEpisodesDroppingSoon": "Episodes dropping soon",
+
+  "sourcesTapToPlay": "Tap to play",
+  "sourcesNoServers": "No servers available",
+
+  "searchHint": "Search dramas",
+  "searchNoResults": "No results",
+
+  "watchlistTitle": "My List",
+  "watchlistEmpty": "Your list is empty",
+  "watchlistBrowseDramas": "Browse dramas",
+
+  "splashRetry": "Retry",
+  "splashExit": "Exit",
+
+  "settingsTitle": "Settings",
+  "settingsLanguage": "Language",
+  "settingsTheme": "Theme",
+  "settingsLogout": "Log out",
+  "settingsAbout": "About",
+  "settingsVersion": "Version",
+
+  "langEnglish": "English",
+  "langUrdu": "اردو",
+  "langPunjabi": "ਪੰਜਾਬੀ",
+  "langHindi": "हिन्दी",
+
+  "errorGeneric": "Something went wrong",
+  "errorNetwork": "No internet connection",
+  "errorUnauthorized": "Please sign in again",
+  "retry": "Retry",
+  "cancel": "Cancel",
+  "ok": "OK",
+  "loading": "Loading...",
+  "continueWatching": "Continue Watching"
+}

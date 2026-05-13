@@ -1,0 +1,42 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build release AAB and upload to Play Store production"
+  lane :deploy_prod do
+    # Flutter build
+    Dir.chdir("../..") do
+      sh("fvm flutter build appbundle --release --dart-define=API_BASE_URL=http://pak-ott.animekill.com/v1")
+    end
+
+    upload_to_play_store(
+      track: "production",
+      aab: "../../build/app/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+      skip_upload_apk: true,
+      changes_not_sent_for_review: true
+    )
+    UI.success("Pakistani Drama deployed to production!")
+  end
+
+  desc "Build and upload to internal testing"
+  lane :deploy_internal do
+    Dir.chdir("../..") do
+      sh("fvm flutter build appbundle --release --dart-define=API_BASE_URL=http://pak-ott.animekill.com/v1")
+    end
+
+    upload_to_play_store(
+      track: "internal",
+      aab: "../../build/app/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+      skip_upload_apk: true,
+      changes_not_sent_for_review: true
+    )
+    UI.success("Pakistani Drama deployed to internal testing!")
+  end
+end

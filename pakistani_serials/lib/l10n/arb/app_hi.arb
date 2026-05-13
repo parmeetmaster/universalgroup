@@ -1,0 +1,81 @@
+{
+  "@@locale": "hi",
+
+  "appName": "पाकिस्तानी सीरियल्स",
+
+  "homeTabTitle": "होम",
+  "browseTabTitle": "देखें",
+  "searchTabTitle": "ढूँढें",
+  "watchlistTabTitle": "मेरी पसंद",
+  "profileTabTitle": "खाता",
+
+  "homeBrand": "पाकिस्तानी सीरियल्स",
+  "homeTop10Today": "आज के टॉप 10 ड्रामे",
+  "homeFeatured": "खास",
+  "homeSeeAll": "और देखें",
+  "homePlay": "चलाएँ",
+  "homeMyList": "मेरी पसंद",
+
+  "genreAll": "सभी",
+  "genreRomance": "रोमांस",
+  "genreFamily": "पारिवारिक",
+  "genreThriller": "थ्रिलर",
+  "genreComedy": "कॉमेडी",
+  "genreDrama": "ड्रामा",
+
+  "badgeNew": "नया",
+  "badgeHD": "HD",
+  "badgeLive": "लाइव",
+  "badgePakistaniSerial": "पाकिस्तानी ड्रामा",
+
+  "statusNewSeries": "नई सीरीज़",
+  "statusOnAir": "चल रहा है",
+  "statusUpcoming": "जल्द आएगा",
+  "statusComplete": "पूरा हुआ",
+  "statusComingSoon": "जल्द आ रहा",
+  "statusNewEpisodes": "नई कड़ियाँ",
+
+  "detailPlay": "चलाएँ",
+  "detailMyList": "मेरी पसंद",
+  "detailAdded": "जुड़ गया",
+  "detailEpisodes": "कड़ियाँ",
+  "detailRelated": "ऐसे ही और ड्रामे",
+  "detailCast": "कलाकार",
+  "detailSeason": "सीज़न",
+  "detailNoEpisodesYet": "अभी कोई कड़ी नहीं",
+  "detailEpisodesDroppingSoon": "कड़ियाँ जल्द आएँगी",
+
+  "sourcesTapToPlay": "चलाने के लिए टैप करें",
+  "sourcesNoServers": "कोई सर्वर नहीं मिला",
+
+  "searchHint": "ड्रामा ढूँढें",
+  "searchNoResults": "कुछ नहीं मिला",
+
+  "watchlistTitle": "मेरी पसंद",
+  "watchlistEmpty": "आपकी पसंद खाली है",
+  "watchlistBrowseDramas": "ड्रामे देखें",
+
+  "splashRetry": "फिर कोशिश करें",
+  "splashExit": "बंद करें",
+
+  "settingsTitle": "सेटिंग्स",
+  "settingsLanguage": "भाषा",
+  "settingsTheme": "थीम",
+  "settingsLogout": "लॉग आउट",
+  "settingsAbout": "ऐप के बारे में",
+  "settingsVersion": "वर्ज़न",
+
+  "langEnglish": "English",
+  "langUrdu": "اردو",
+  "langPunjabi": "ਪੰਜਾਬੀ",
+  "langHindi": "हिन्दी",
+
+  "errorGeneric": "कुछ गड़बड़ हो गई",
+  "errorNetwork": "नेट नहीं चल रहा",
+  "errorUnauthorized": "दोबारा साइन इन करें",
+  "retry": "फिर कोशिश",
+  "cancel": "रहने दें",
+  "ok": "ठीक है",
+  "loading": "एक पल ठहरें...",
+  "continueWatching": "देखना जारी रखें"
+}

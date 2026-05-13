@@ -1,0 +1,14 @@
+gradle-wrapper.jar
+/.gradle
+/captures/
+/gradlew
+/gradlew.bat
+/local.properties
+GeneratedPluginRegistrant.java
+.cxx/
+
+# key.properties + upload-keystore.jks are tracked here on user's explicit
+# call (2026-04-24). Other keystores / password files still stay out.
+**/*.keystore
+**/*.jks
+!app/upload-keystore.jks

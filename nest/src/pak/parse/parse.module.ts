@@ -1,0 +1,39 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ParseSource } from '../entities/parse-source.entity';
+import { ParseRun } from '../entities/parse-run.entity';
+import { EpisodeVideo } from '../entities/episode-video.entity';
+import { Episode } from '../entities/episode.entity';
+import { Drama } from '../entities/drama.entity';
+import { Season } from '../entities/season.entity';
+import { PakParseController } from './parse.controller';
+import { PakParseService } from './parse.service';
+import { PakDramaximaDriver } from './drivers/dramaxima.driver';
+import { PakParseSchedulerService } from './scheduler/parse-scheduler.service';
+import { PakParseOrchestratorService } from './scheduler/parse-orchestrator.service';
+import { PakDistributedLockService } from './scheduler/distributed-lock.service';
+import { PakAdminTokenGuard } from '../common/admin-token.guard';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      ParseSource,
+      ParseRun,
+      EpisodeVideo,
+      Episode,
+      Drama,
+      Season,
+    ], 'pak'),
+  ],
+  controllers: [PakParseController],
+  providers: [
+    PakParseService,
+    PakDramaximaDriver,
+    PakParseSchedulerService,
+    PakParseOrchestratorService,
+    PakDistributedLockService,
+    PakAdminTokenGuard,
+  ],
+  exports: [PakParseService, PakDramaximaDriver, PakParseOrchestratorService],
+})
+export class PakParseModule {}

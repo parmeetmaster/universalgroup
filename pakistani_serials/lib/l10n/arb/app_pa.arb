@@ -1,0 +1,81 @@
+{
+  "@@locale": "pa",
+
+  "appName": "ਪਾਕਿਸਤਾਨੀ ਸੀਰੀਅਲ",
+
+  "homeTabTitle": "ਘਰ",
+  "browseTabTitle": "ਵੇਖੋ",
+  "searchTabTitle": "ਲੱਭੋ",
+  "watchlistTabTitle": "ਮੇਰੀ ਪਸੰਦ",
+  "profileTabTitle": "ਖਾਤਾ",
+
+  "homeBrand": "ਪਾਕਿਸਤਾਨੀ ਸੀਰੀਅਲ",
+  "homeTop10Today": "ਅੱਜ ਦੇ ਟੌਪ 10 ਡਰਾਮੇ",
+  "homeFeatured": "ਖਾਸ",
+  "homeSeeAll": "ਹੋਰ ਵੇਖੋ",
+  "homePlay": "ਚਲਾਓ",
+  "homeMyList": "ਮੇਰੀ ਪਸੰਦ",
+
+  "genreAll": "ਸਾਰੇ",
+  "genreRomance": "ਰੋਮਾਂਸ",
+  "genreFamily": "ਪਰਿਵਾਰਕ",
+  "genreThriller": "ਥ੍ਰਿਲਰ",
+  "genreComedy": "ਹਾਸਰਸ",
+  "genreDrama": "ਡਰਾਮਾ",
+
+  "badgeNew": "ਨਵਾਂ",
+  "badgeHD": "HD",
+  "badgeLive": "ਲਾਈਵ",
+  "badgePakistaniSerial": "ਪਾਕਿਸਤਾਨੀ ਡਰਾਮਾ",
+
+  "statusNewSeries": "ਨਵੀਂ ਸੀਰੀਜ਼",
+  "statusOnAir": "ਚੱਲ ਰਿਹਾ ਹੈ",
+  "statusUpcoming": "ਜਲਦੀ ਆਵੇਗਾ",
+  "statusComplete": "ਮੁਕੰਮਲ",
+  "statusComingSoon": "ਜਲਦੀ ਆ ਰਿਹਾ",
+  "statusNewEpisodes": "ਨਵੀਆਂ ਕਿਸ਼ਤਾਂ",
+
+  "detailPlay": "ਚਲਾਓ",
+  "detailMyList": "ਮੇਰੀ ਪਸੰਦ",
+  "detailAdded": "ਜੁੜ ਗਿਆ",
+  "detailEpisodes": "ਕਿਸ਼ਤਾਂ",
+  "detailRelated": "ਇਹੋ ਜਿਹੇ ਹੋਰ ਡਰਾਮੇ",
+  "detailCast": "ਕਲਾਕਾਰ",
+  "detailSeason": "ਸੀਜ਼ਨ",
+  "detailNoEpisodesYet": "ਹਾਲੇ ਕੋਈ ਕਿਸ਼ਤ ਨਹੀਂ",
+  "detailEpisodesDroppingSoon": "ਕਿਸ਼ਤਾਂ ਜਲਦੀ ਆਉਣਗੀਆਂ",
+
+  "sourcesTapToPlay": "ਚਲਾਉਣ ਲਈ ਛੂਹੋ",
+  "sourcesNoServers": "ਕੋਈ ਸਰਵਰ ਨਹੀਂ ਮਿਲਿਆ",
+
+  "searchHint": "ਡਰਾਮੇ ਲੱਭੋ",
+  "searchNoResults": "ਕੁਝ ਨਹੀਂ ਲੱਭਿਆ",
+
+  "watchlistTitle": "ਮੇਰੀ ਪਸੰਦ",
+  "watchlistEmpty": "ਤੁਹਾਡੀ ਪਸੰਦ ਖਾਲੀ ਹੈ",
+  "watchlistBrowseDramas": "ਡਰਾਮੇ ਵੇਖੋ",
+
+  "splashRetry": "ਫਿਰ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
+  "splashExit": "ਬੰਦ ਕਰੋ",
+
+  "settingsTitle": "ਸੈਟਿੰਗਾਂ",
+  "settingsLanguage": "ਭਾਸ਼ਾ",
+  "settingsTheme": "ਥੀਮ",
+  "settingsLogout": "ਲੌਗ ਆਊਟ",
+  "settingsAbout": "ਐਪ ਬਾਰੇ",
+  "settingsVersion": "ਵਰਜਨ",
+
+  "langEnglish": "English",
+  "langUrdu": "اردو",
+  "langPunjabi": "ਪੰਜਾਬੀ",
+  "langHindi": "हिन्दी",
+
+  "errorGeneric": "ਕੁਝ ਗੜਬੜ ਹੋ ਗਈ",
+  "errorNetwork": "ਨੈੱਟ ਨਹੀਂ ਚੱਲ ਰਿਹਾ",
+  "errorUnauthorized": "ਦੁਬਾਰਾ ਸਾਈਨ ਇਨ ਕਰੋ",
+  "retry": "ਫਿਰ ਕੋਸ਼ਿਸ਼",
+  "cancel": "ਰਹਿਣ ਦਿਓ",
+  "ok": "ਠੀਕ ਹੈ",
+  "loading": "ਇੱਕ ਪਲ...",
+  "continueWatching": "ਵੇਖਣਾ ਜਾਰੀ ਰੱਖੋ"
+}

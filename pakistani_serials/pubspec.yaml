@@ -1,0 +1,87 @@
+name: pakistani_serials
+description: "Pakistani Serials — Netflix-style OTT app for Pakistani dramas."
+publish_to: 'none'
+version: 1.0.0+2
+
+environment:
+  sdk: ">=3.7.0 <4.0.0"
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State
+  flutter_bloc: ^9.0.0
+  bloc: ^9.0.0
+  hydrated_bloc: ^10.0.0
+  equatable: ^2.0.7
+
+  # DI
+  get_it: ^8.0.3
+  injectable: ^2.5.0
+
+  # Models / codegen runtime
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  dartz: ^0.10.1
+
+  # Networking
+  dio: ^5.7.0
+  dio_smart_retry: ^7.0.1
+  pretty_dio_logger: ^1.4.0
+
+  # Routing
+  go_router: ^14.6.2
+
+  # Storage
+  shared_preferences: ^2.3.3
+  flutter_secure_storage: ^9.2.2
+  path_provider: ^2.1.5
+
+  # UI
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+  flutter_svg: ^2.0.16
+  google_fonts: ^6.2.1
+  flutter_staggered_animations: ^1.1.1
+  cupertino_icons: ^1.0.8
+
+  # Video player
+  better_player_plus: ^1.0.8
+  flutter_inappwebview: ^6.1.5
+
+  # i18n
+  intl: ^0.20.2
+
+  # Firebase
+  firebase_core: ^4.8.0
+  firebase_analytics: ^12.4.0
+  firebase_crashlytics: ^5.2.1
+  firebase_performance: ^0.11.4
+
+  # Utility
+  http: ^1.2.0
+  connectivity_plus: ^6.1.0
+  share_plus: ^10.1.2
+  url_launcher: ^6.3.1
+  package_info_plus: ^8.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.13
+  freezed: ^2.5.7
+  json_serializable: ^6.9.0
+  injectable_generator: ^2.6.2
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/images/
+    - assets/icons/

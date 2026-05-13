@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "nest/**",
+    "pakistani_serials/**",
+    "super-video-downloader/**",
   ]),
 ]);
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "938976152737",
+    "project_id": "pakistani-serials-app",
+    "storage_bucket": "pakistani-serials-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:938976152737:android:ef67d486442124fbeab4e0",
+        "android_client_info": {
+          "package_name": "com.pakistanidrama.serial"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpmh41bz-zZQpOZ1P9mHM1cZDlQi8WYxA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
