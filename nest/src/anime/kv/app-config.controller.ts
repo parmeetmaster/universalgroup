@@ -16,7 +16,7 @@ class AppConfigDto {
   trends!: string[];
   top_sites!: TopSiteDto[];
   grace_enabled?: boolean;
-  grace_min_build_version?: number;
+  grace_max_build_version?: number;
 }
 
 const CONFIG_KEY = 'app_config';
@@ -45,7 +45,7 @@ export class AppConfigController {
           trends: this.parseNested(raw.trends, []),
           top_sites: this.parseNested(raw.top_sites, []),
           grace_enabled: raw.grace_enabled ?? true,
-          grace_min_build_version: Number(raw.grace_min_build_version) || 0,
+          grace_max_build_version: Number(raw.grace_max_build_version) || 0,
         },
         updatedAt: entry.updatedAt,
       };
@@ -68,7 +68,7 @@ export class AppConfigController {
       trends: JSON.stringify(body.trends || []),
       top_sites: JSON.stringify(body.top_sites || []),
       grace_enabled: body.grace_enabled ?? true,
-      grace_min_build_version: body.grace_min_build_version ?? 0,
+      grace_max_build_version: body.grace_max_build_version ?? 0,
     });
 
     const entry = await this.kvService.set(CONFIG_KEY, value);
