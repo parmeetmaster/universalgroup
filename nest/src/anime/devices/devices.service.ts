@@ -5,6 +5,7 @@ import { Cron } from '@nestjs/schedule';
 import { DeviceTokenEntity } from './entities/device-token.entity';
 import { DeviceGraceEntity } from './entities/device-grace.entity';
 import { FcmService } from '../fcm/fcm.service';
+import { KvService } from '../kv/kv.service';
 
 const GRACE_PERIOD_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -24,6 +25,7 @@ export class DevicesService {
     @InjectRepository(DeviceGraceEntity, 'anime')
     private readonly graceRepo: Repository<DeviceGraceEntity>,
     private readonly fcm: FcmService,
+    private readonly kv: KvService,
   ) {}
 
   async upsertDevice(
@@ -81,6 +83,23 @@ export class DevicesService {
       graceExpiresAt: new Date(expiresAt).toISOString(),
       graceRemainingMs: remainingMs,
     };
+  }
+
+  async autoUpdateGraceMaxBuild(buildVersion: number): Promise<void> {
+    if (!buildVersion || buildVersion <= 0) return;
+    try {
+      const entry = await this.kv.get('app_config');
+      if (!entry) return;
+      const raw = typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
+      const currentMax = Number(raw.grace_max_build_version) || 0;
+      if (buildVersion > currentMax) {
+        raw.grace_max_build_version = buildVersion;
+        await this.kv.set('app_config', JSON.stringify(raw));
+        this.logger.log(`Grace max build auto-updated: ${currentMax} → ${buildVersion}`);
+      }
+    } catch (e) {
+      this.logger.warn(`Failed to auto-update grace max build: ${e.message}`);
+    }
   }
 
   async getStats() {

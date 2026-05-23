@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Headers, Post } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FcmService } from '../fcm/fcm.service';
 import { DevicesService } from './devices.service';
@@ -57,6 +57,7 @@ export class DevicesController {
     },
   })
   async register(
+    @Headers('x-build-version') buildVersionHeader: string | undefined,
     @Body()
     body: {
       token: string;
@@ -91,6 +92,15 @@ export class DevicesController {
         body?.appVersion?.trim(),
         body?.deviceModel?.trim(),
       );
+    }
+
+    // Auto-update grace_max_build_version when a new release build registers.
+    // Debug builds have versionCode+1 (odd numbers / higher), skip them.
+    const buildVersion = Number(buildVersionHeader) || 0;
+    const appVersionStr = body?.appVersion?.trim() || '';
+    const isDebugBuild = appVersionStr.includes('-debug');
+    if (buildVersion > 0 && !isDebugBuild) {
+      this.devices.autoUpdateGraceMaxBuild(buildVersion).catch(() => {});
     }
 
     return { ok: true, topics, blocked, fcmEnabled: this.fcm.isEnabled, grace };
