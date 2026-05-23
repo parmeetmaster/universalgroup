@@ -8,6 +8,9 @@ import { KvEntryEntity } from './kv/entities/kv-entry.entity';
 import { UserEntity } from './auth/user.entity';
 import { ErrorReportEntity } from './reports/entities/error-report.entity';
 import { DeviceTokenEntity } from './devices/entities/device-token.entity';
+import { DeviceGraceEntity } from './devices/entities/device-grace.entity';
+import { ProxyEntity } from './proxy/entities/proxy.entity';
+import { SiteVisitEntity } from './analytics/entities/site-visit.entity';
 import { ScraperModule } from './scraper/scraper.module';
 import { DiffModule } from './diff/diff.module';
 import { FcmModule } from './fcm/fcm.module';
@@ -18,6 +21,8 @@ import { DevicesModule } from './devices/devices.module';
 import { AdminModule } from './admin/admin.module';
 import { PollerModule } from './poller/poller.module';
 import { LegacyModule } from './legacy/legacy.module';
+import { ProxyModule } from './proxy/proxy.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { AnimeController } from './anime.controller';
 
 @Module({
@@ -41,6 +46,9 @@ import { AnimeController } from './anime.controller';
           UserEntity,
           ErrorReportEntity,
           DeviceTokenEntity,
+          DeviceGraceEntity,
+          ProxyEntity,
+          SiteVisitEntity,
         ],
         synchronize: true,
         charset: 'utf8mb4',
@@ -57,6 +65,8 @@ import { AnimeController } from './anime.controller';
     AdminModule,
     PollerModule,
     LegacyModule,
+    ProxyModule,
+    AnalyticsModule,
   ],
   controllers: [AnimeController],
 })
