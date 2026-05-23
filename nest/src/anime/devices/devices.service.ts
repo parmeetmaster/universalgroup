@@ -3,7 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
 import { DeviceTokenEntity } from './entities/device-token.entity';
+import { DeviceGraceEntity } from './entities/device-grace.entity';
 import { FcmService } from '../fcm/fcm.service';
+
+const GRACE_PERIOD_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const UNINSTALL_CODES = new Set([
   'messaging/registration-token-not-registered',
@@ -18,6 +21,8 @@ export class DevicesService {
   constructor(
     @InjectRepository(DeviceTokenEntity, 'anime')
     private readonly repo: Repository<DeviceTokenEntity>,
+    @InjectRepository(DeviceGraceEntity, 'anime')
+    private readonly graceRepo: Repository<DeviceGraceEntity>,
     private readonly fcm: FcmService,
   ) {}
 
@@ -41,6 +46,41 @@ export class DevicesService {
          last_active_at = NOW()`,
       [token, country || null, appVersion || null, deviceModel || null],
     );
+  }
+
+  async checkOrCreateGrace(
+    deviceId: string,
+    country?: string,
+    appVersion?: string,
+    deviceModel?: string,
+  ): Promise<{ graceActive: boolean; graceExpiresAt: string; graceRemainingMs: number }> {
+    // INSERT IGNORE — first_seen_at is immutable, never overwritten on reinstall
+    await this.graceRepo.manager.query(
+      `INSERT IGNORE INTO device_grace
+         (device_id, first_seen_at, country, device_model, app_version)
+       VALUES (?, NOW(), ?, ?, ?)`,
+      [deviceId, country || null, deviceModel || null, appVersion || null],
+    );
+
+    const rows = await this.graceRepo.manager.query(
+      `SELECT first_seen_at FROM device_grace WHERE device_id = ?`,
+      [deviceId],
+    );
+
+    if (!rows || rows.length === 0) {
+      return { graceActive: false, graceExpiresAt: new Date().toISOString(), graceRemainingMs: 0 };
+    }
+
+    const firstSeenAt = new Date(rows[0].first_seen_at).getTime();
+    const expiresAt = firstSeenAt + GRACE_PERIOD_MS;
+    const now = Date.now();
+    const remainingMs = Math.max(0, expiresAt - now);
+
+    return {
+      graceActive: remainingMs > 0,
+      graceExpiresAt: new Date(expiresAt).toISOString(),
+      graceRemainingMs: remainingMs,
+    };
   }
 
   async getStats() {
