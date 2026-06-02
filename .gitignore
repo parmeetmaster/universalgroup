@@ -39,3 +39,26 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# NestJS
+nest/dist/
+nest/node_modules/
+
+# Flutter
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/pubspec.lock
+
+# Android
+*.apk
+*.aab
+*.so
+*.dill
+*.dill.track.dill
+
+# iOS
+**/Pods/
+**/*.xcworkspace
