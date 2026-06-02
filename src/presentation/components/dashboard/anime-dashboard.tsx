@@ -32,6 +32,7 @@ import { AppConfigForm } from "./app-config-form";
 import { ErrorReportsPanel } from "./error-reports-panel";
 import { ScraperPanel } from "./scraper-panel";
 import { DevicesPanel } from "./devices-panel";
+import { SiteAnalyticsPanel } from "./site-analytics-panel";
 
 interface AnimeData {
   stats: { seenEpisodes: number; registeredCountries: number; blockedCountries: number; kvEntries: number };
@@ -255,6 +256,7 @@ export function AnimeDashboard() {
   if (activePage === "reports") return <ErrorReportsPanel />;
   if (activePage === "countries") return <CountriesPanel />;
   if (activePage === "devices") return <DevicesPanel />;
+  if (activePage === "analytics") return <SiteAnalyticsPanel />;
   if (activePage === "kv-store") return (
     <Flex direction="column" gap={4}>
       <AppConfigForm />

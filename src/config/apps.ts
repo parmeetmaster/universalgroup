@@ -18,6 +18,7 @@ import {
   MdBookmark,
   MdBugReport,
   MdDevices,
+  MdAnalytics,
 } from "react-icons/md";
 
 export interface NavItem {
@@ -52,6 +53,7 @@ export const apps: AppConfig[] = [
       { label: "Reports", icon: MdBugReport, id: "reports" },
       { label: "Countries", icon: MdPublic, id: "countries" },
       { label: "Devices", icon: MdDevices, id: "devices" },
+      { label: "Site Analytics", icon: MdAnalytics, id: "analytics" },
       { label: "KV Store", icon: MdStorage, id: "kv-store" },
       { label: "Settings", icon: MdSettings, id: "settings" },
     ],
