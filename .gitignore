@@ -62,3 +62,4 @@ nest/node_modules/
 # iOS
 **/Pods/
 **/*.xcworkspace
+pakistani_serials/android/play-store-key.json
