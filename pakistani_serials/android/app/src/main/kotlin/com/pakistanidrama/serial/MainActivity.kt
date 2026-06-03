@@ -23,8 +23,8 @@ class MainActivity : FlutterActivity() {
                     val actions = arrayOf(
                         "android.settings.WIFI_DISPLAY_SETTINGS",    // Screen mirroring (most OEMs)
                         "com.android.settings.WIFI_DISPLAY_SETTINGS", // Samsung
-                        "android.settings.CAST_SETTINGS",             // Stock Android
-                        Settings.ACTION_DISPLAY_SETTINGS,              // Fallback: display settings
+                        "android.settings.CAST_SETTINGS",             // Stock Android cast
+                        "com.google.android.gms.settings.CAST_SETTINGS", // Google cast
                     )
                     for (action in actions) {
                         try {

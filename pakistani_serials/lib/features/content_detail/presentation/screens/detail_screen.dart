@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -121,14 +122,14 @@ class _LoadedState extends State<_Loaded> {
 
   void _saveAndPlay(BuildContext context, String slug, int season, EpisodeModel ep) {
     getIt<WatchHistoryService>().saveLastPlayed(slug, season, ep.episodeNumber);
-    // Show interstitial ad before navigating to sources
-    getIt<AdService>().showInterstitial(
-      onDone: () {
-        if (context.mounted) {
-          context.push(AppRoutes.sources, extra: ep);
-        }
-      },
-    );
+    // Navigate first, then show ad on the new screen
+    context.push(AppRoutes.sources, extra: ep);
+    if (adsEnabled) {
+      // Small delay so sources screen renders first, then ad overlays it
+      Future<void>.delayed(const Duration(milliseconds: 500), () {
+        getIt<AdService>().showInterstitial();
+      });
+    }
   }
 
   Future<void> _shareDrama(BuildContext context, ContentModel content) async {
@@ -291,9 +292,7 @@ class _LoadedState extends State<_Loaded> {
                     icon: const _RoundIcon(icon: Icons.arrow_back_rounded),
                   ),
                   const Spacer(),
-                  _CastButton(
-                    episodes: state.episodes,
-                  ),
+                  const _CastButton(),
                   IconButton(
                     onPressed: () => _shareDrama(context, c),
                     icon: const _RoundIcon(icon: Icons.share_rounded),
@@ -926,15 +925,9 @@ class _EpisodeTile extends StatelessWidget {
                   child: SizedBox(
                     width: 128,
                     height: 72,
-                    child: CachedNetworkImage(
-                      imageUrl: resolveImageUrl(episode.thumbnailUrl) ??
-                          resolveImageUrl(fallbackImageUrl) ??
-                          '',
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) =>
-                          Container(color: AppColors.surfaceElevated),
-                      errorWidget: (_, __, ___) =>
-                          Container(color: AppColors.surfaceElevated),
+                    child: _EpisodeThumb(
+                      thumbnailUrl: resolveImageUrl(episode.thumbnailUrl),
+                      fallbackUrl: resolveImageUrl(fallbackImageUrl),
                     ),
                   ),
                 ),
@@ -1089,6 +1082,46 @@ class _EpisodeEmptyState extends StatelessWidget {
   }
 }
 
+class _EpisodeThumb extends StatefulWidget {
+  const _EpisodeThumb({this.thumbnailUrl, this.fallbackUrl});
+  final String? thumbnailUrl;
+  final String? fallbackUrl;
+
+  @override
+  State<_EpisodeThumb> createState() => _EpisodeThumbState();
+}
+
+class _EpisodeThumbState extends State<_EpisodeThumb> {
+  bool _useFallback = false;
+
+  String? get _url {
+    if (!_useFallback && widget.thumbnailUrl != null) return widget.thumbnailUrl;
+    return widget.fallbackUrl;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = _url;
+    if (url == null || url.isEmpty) {
+      return Container(color: AppColors.surfaceElevated);
+    }
+    return CachedNetworkImage(
+      imageUrl: url,
+      fit: BoxFit.cover,
+      placeholder: (_, __) => Container(color: AppColors.surfaceElevated),
+      errorWidget: (_, __, ___) {
+        if (!_useFallback && widget.fallbackUrl != null && widget.fallbackUrl != widget.thumbnailUrl) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _useFallback = true);
+          });
+          return Container(color: AppColors.surfaceElevated);
+        }
+        return Container(color: AppColors.surfaceElevated);
+      },
+    );
+  }
+}
+
 class _HeroPlaceholder extends StatelessWidget {
   const _HeroPlaceholder({required this.title});
   final String title;
@@ -1183,66 +1216,28 @@ class _DownloadButtonState extends State<_DownloadButton> {
   }
 }
 
-class _CastButton extends StatefulWidget {
-  const _CastButton({required this.episodes});
-  final List<EpisodeModel> episodes;
+class _CastButton extends StatelessWidget {
+  const _CastButton();
 
-  @override
-  State<_CastButton> createState() => _CastButtonState();
-}
+  static const _channel = MethodChannel('com.pakistanidrama.serial/cast');
 
-class _CastButtonState extends State<_CastButton> {
-  bool _loading = false;
-
-  Future<void> _onCast() async {
-    if (_loading || widget.episodes.isEmpty) return;
-    setState(() => _loading = true);
-    try {
-      final api = getIt<ApiService>();
-      final ep = widget.episodes.first;
-      final servers = await api.resolveEpisode(ep.id);
-      final mp4 = servers.where((s) => s.format == 'mp4').firstOrNull ?? servers.firstOrNull;
-      if (mp4 == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(const SnackBar(
-              content: Text('No castable source found'),
-              behavior: SnackBarBehavior.floating,
-            ));
-        }
-        return;
-      }
-      // Open video URL via system intent — cast apps (Google Home, AllCast, etc.) will appear
-      await launchUrl(
-        Uri.parse(mp4.url),
-        mode: LaunchMode.externalApplication,
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            content: Text('Cast failed: $e'),
-            behavior: SnackBarBehavior.floating,
-          ));
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+  void _openCast(BuildContext context) {
+    final messenger = ScaffoldMessenger.of(context);
+    _channel.invokeMethod<void>('openCastDialog').catchError((_) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+          content: Text('Screen mirroring not available on this device'),
+          behavior: SnackBarBehavior.floating,
+        ));
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      onPressed: widget.episodes.isEmpty ? null : _onCast,
-      icon: _loading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-            )
-          : const _RoundIcon(icon: Icons.cast_rounded),
+      onPressed: () => _openCast(context),
+      icon: const _RoundIcon(icon: Icons.cast_rounded),
     );
   }
 }

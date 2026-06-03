@@ -5,12 +5,12 @@
     
     
       
-      <testcase classname="fastlane.lanes" name="0: default_platform" time="0.000184">
+      <testcase classname="fastlane.lanes" name="0: default_platform" time="0.000277">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="1: fvm flutter build appbundle --release --dart-define=API_BASE_URL=http://pak-ott.animekill.com/v1" time="153.210693">
+      <testcase classname="fastlane.lanes" name="1: fvm flutter build appbundle --release --dart-define=API_BASE_URL=http://pak-ott.animekill.com/v1" time="80.629464">
         
       </testcase>
     

@@ -56,13 +56,15 @@ class _SourcesScreenState extends State<SourcesScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      bottomNavigationBar: const ColoredBox(
-        color: AppColors.bg,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: 4),
-          child: Center(child: AdService.playBanner),
-        ),
-      ),
+      bottomNavigationBar: adsEnabled
+          ? SizedBox(
+              height: 60,
+              child: ColoredBox(
+                color: AppColors.bg,
+                child: const Center(child: AdService.playBanner),
+              ),
+            )
+          : null,
       body: FutureBuilder<List<ResolvedServer>>(
         future: _future,
         builder: (ctx, snap) {
