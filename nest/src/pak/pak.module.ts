@@ -14,6 +14,7 @@ import { HomeRailItem } from './entities/home-rail-item.entity';
 import { ParseRun } from './entities/parse-run.entity';
 import { ParseSource } from './entities/parse-source.entity';
 import { Season } from './entities/season.entity';
+import { DramaLike } from './entities/drama-like.entity';
 
 import { PakDramasModule } from './dramas/dramas.module';
 import { PakEpisodesModule } from './episodes/episodes.module';
@@ -28,6 +29,9 @@ import { PakHealthModule } from './health/health.module';
 import { PakPagesModule } from './pages/pages.module';
 import { PakNotificationsModule } from './notifications/pak-notifications.module';
 import { PakSentNotification } from './notifications/sent-notification.entity';
+import { PakImageProxyModule } from './image-proxy/pak-image-proxy.module';
+import { PakImageModule } from './services/pak-image.module';
+import { PakV2Module } from './v2/pak-v2.module';
 
 @Module({
   imports: [
@@ -56,6 +60,7 @@ import { PakSentNotification } from './notifications/sent-notification.entity';
           ParseSource,
           Season,
           PakSentNotification,
+          DramaLike,
         ],
         synchronize: false,
         charset: 'utf8mb4',
@@ -74,6 +79,9 @@ import { PakSentNotification } from './notifications/sent-notification.entity';
     PakHealthModule,
     PakPagesModule,
     PakNotificationsModule,
+    PakImageProxyModule,
+    PakImageModule,
+    PakV2Module,
   ],
 })
 export class PakModule {}

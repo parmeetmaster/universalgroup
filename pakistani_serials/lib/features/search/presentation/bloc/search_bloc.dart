@@ -9,19 +9,13 @@ import '../../../shared/models/content_model.dart';
 
 sealed class SearchEvent {}
 class SearchQueryChanged extends SearchEvent {
-  final String query;
   SearchQueryChanged(this.query);
+  final String query;
 }
 
 enum SearchStatus { idle, loading, loaded, error }
 
 class SearchState extends Equatable {
-  final SearchStatus status;
-  final String query;
-  final List<ContentModel> content;
-  final List<EpisodeModel> episodes;
-  final String? errorMessage;
-
   const SearchState({
     this.status = SearchStatus.idle,
     this.query = '',
@@ -29,6 +23,12 @@ class SearchState extends Equatable {
     this.episodes = const [],
     this.errorMessage,
   });
+
+  final SearchStatus status;
+  final String query;
+  final List<ContentModel> content;
+  final List<EpisodeModel> episodes;
+  final String? errorMessage;
 
   SearchState copyWith({
     SearchStatus? status,

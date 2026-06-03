@@ -1,6 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../shared/data/api_service.dart';
 import '../../../shared/models/content_model.dart';
@@ -8,27 +10,19 @@ import '../../../watchlist/presentation/bloc/watchlist_bloc.dart';
 
 sealed class DetailEvent {}
 class DetailLoad extends DetailEvent {
-  final String slug;
   DetailLoad(this.slug);
+  final String slug;
 }
 class DetailSeasonChanged extends DetailEvent {
-  final int seasonNumber;
   DetailSeasonChanged(this.seasonNumber);
+  final int seasonNumber;
 }
 class DetailWatchlistToggled extends DetailEvent {}
+class DetailLikeToggled extends DetailEvent {}
 
 enum DetailStatus { initial, loading, loaded, error }
 
 class DetailState extends Equatable {
-  final DetailStatus status;
-  final ContentModel? content;
-  final List<SeasonModel> seasons;
-  final List<EpisodeModel> episodes;
-  final List<ContentModel> related;
-  final int currentSeason;
-  final bool inWatchlist;
-  final String? errorMessage;
-
   const DetailState({
     this.status = DetailStatus.initial,
     this.content,
@@ -37,8 +31,21 @@ class DetailState extends Equatable {
     this.related = const [],
     this.currentSeason = 1,
     this.inWatchlist = false,
+    this.isLiked = false,
+    this.totalLikes = 0,
     this.errorMessage,
   });
+
+  final DetailStatus status;
+  final ContentModel? content;
+  final List<SeasonModel> seasons;
+  final List<EpisodeModel> episodes;
+  final List<ContentModel> related;
+  final int currentSeason;
+  final bool inWatchlist;
+  final bool isLiked;
+  final int totalLikes;
+  final String? errorMessage;
 
   DetailState copyWith({
     DetailStatus? status,
@@ -48,6 +55,8 @@ class DetailState extends Equatable {
     List<ContentModel>? related,
     int? currentSeason,
     bool? inWatchlist,
+    bool? isLiked,
+    int? totalLikes,
     String? errorMessage,
   }) =>
       DetailState(
@@ -58,13 +67,18 @@ class DetailState extends Equatable {
         related: related ?? this.related,
         currentSeason: currentSeason ?? this.currentSeason,
         inWatchlist: inWatchlist ?? this.inWatchlist,
+        isLiked: isLiked ?? this.isLiked,
+        totalLikes: totalLikes ?? this.totalLikes,
         errorMessage: errorMessage,
       );
 
   @override
   List<Object?> get props =>
-      [status, content, seasons, episodes, related, currentSeason, inWatchlist, errorMessage];
+      [status, content, seasons, episodes, related, currentSeason, inWatchlist, isLiked, totalLikes, errorMessage];
 }
+
+const _deviceIdKey = 'pak_device_id';
+const _likedKey = 'pak_liked_slugs';
 
 @injectable
 class DetailBloc extends Bloc<DetailEvent, DetailState> {
@@ -72,10 +86,31 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
     on<DetailLoad>(_onLoad);
     on<DetailSeasonChanged>(_onSeasonChanged);
     on<DetailWatchlistToggled>(_onWatchlistToggled);
+    on<DetailLikeToggled>(_onLikeToggled);
   }
 
   final ApiService _api;
   final WatchlistBloc _watchlist;
+
+  static Future<String> _getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    var id = prefs.getString(_deviceIdKey);
+    if (id == null) {
+      id = const Uuid().v4();
+      await prefs.setString(_deviceIdKey, id);
+    }
+    return id;
+  }
+
+  static Future<Set<String>> _getLocalLikedSlugs() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_likedKey)?.toSet() ?? {};
+  }
+
+  static Future<void> _setLocalLikedSlugs(Set<String> slugs) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_likedKey, slugs.toList());
+  }
 
   Future<void> _onLoad(DetailLoad e, Emitter<DetailState> emit) async {
     emit(state.copyWith(status: DetailStatus.loading));
@@ -88,6 +123,14 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
           : await _safe(
               () => _api.episodes(e.slug, first), const <EpisodeModel>[]);
       final related = await _safe(() => _api.related(e.slug), const <ContentModel>[]);
+
+      // Check like status from local cache
+      final likedSlugs = await _getLocalLikedSlugs();
+      final isLiked = likedSlugs.contains(e.slug);
+
+      // Record view
+      _api.recordView(e.slug).catchError((_) {});
+
       emit(state.copyWith(
         status: DetailStatus.loaded,
         content: content,
@@ -96,6 +139,8 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
         related: related,
         currentSeason: first,
         inWatchlist: _watchlist.state.contains(content.slug),
+        isLiked: isLiked,
+        totalLikes: content.totalLikes,
       ));
     } catch (err) {
       emit(state.copyWith(status: DetailStatus.error, errorMessage: err.toString()));
@@ -126,5 +171,40 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
     if (content == null) return;
     _watchlist.add(WatchlistToggled(content));
     emit(state.copyWith(inWatchlist: !state.inWatchlist));
+  }
+
+  Future<void> _onLikeToggled(
+      DetailLikeToggled e, Emitter<DetailState> emit) async {
+    final slug = state.content?.slug;
+    if (slug == null) return;
+
+    // Optimistic update
+    final wasLiked = state.isLiked;
+    final newLikes = wasLiked
+        ? (state.totalLikes - 1).clamp(0, 999999999)
+        : state.totalLikes + 1;
+    emit(state.copyWith(isLiked: !wasLiked, totalLikes: newLikes));
+
+    // Update local cache
+    final likedSlugs = await _getLocalLikedSlugs();
+    if (wasLiked) {
+      likedSlugs.remove(slug);
+    } else {
+      likedSlugs.add(slug);
+    }
+    await _setLocalLikedSlugs(likedSlugs);
+
+    // Call API
+    try {
+      final deviceId = await _getDeviceId();
+      final result = await _api.toggleLike(slug, deviceId);
+      emit(state.copyWith(
+        isLiked: result['liked'] as bool,
+        totalLikes: result['totalLikes'] as int,
+      ));
+    } catch (_) {
+      // Revert on failure
+      emit(state.copyWith(isLiked: wasLiked, totalLikes: state.totalLikes));
+    }
   }
 }

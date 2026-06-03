@@ -73,6 +73,15 @@ export class Drama {
   @Column({ name: 'total_episodes', type: 'int', default: 0 })
   totalEpisodes!: number;
 
+  @Column({ name: 'total_likes', type: 'int', default: 0 })
+  totalLikes!: number;
+
+  @Column({ name: 'daily_views', type: 'int', default: 0 })
+  dailyViews!: number;
+
+  @Column({ name: 'monthly_views', type: 'int', default: 0 })
+  monthlyViews!: number;
+
   @Column({ type: 'varchar', length: 8, default: 'ur' })
   language!: string;
 
@@ -87,6 +96,24 @@ export class Drama {
 
   @Column({ name: 'source_url', type: 'varchar', length: 500, nullable: true })
   sourceUrl!: string | null;
+
+  @Column({ name: 'poster_original_url', type: 'varchar', length: 500, nullable: true })
+  posterOriginalUrl!: string | null;
+
+  @Column({ name: 'backdrop_original_url', type: 'varchar', length: 500, nullable: true })
+  backdropOriginalUrl!: string | null;
+
+  @Column({ name: 'poster_imageban_id', type: 'varchar', length: 20, nullable: true })
+  posterImagebanId!: string | null;
+
+  @Column({ name: 'backdrop_imageban_id', type: 'varchar', length: 20, nullable: true })
+  backdropImagebanId!: string | null;
+
+  @Column({ name: 'poster_hosted', type: 'tinyint', width: 1, default: 0 })
+  posterHosted!: number;
+
+  @Column({ name: 'backdrop_hosted', type: 'tinyint', width: 1, default: 0 })
+  backdropHosted!: number;
 
   @Column({ name: 'parse_last_modified', type: 'timestamp', nullable: true })
   parseLastModified!: Date | null;

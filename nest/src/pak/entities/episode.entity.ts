@@ -55,6 +55,21 @@ export class Episode {
   @Column({ name: 'source_url', type: 'varchar', length: 500, nullable: true })
   sourceUrl!: string | null;
 
+  @Column({ name: 'thumbnail_original_url', type: 'varchar', length: 500, nullable: true })
+  thumbnailOriginalUrl!: string | null;
+
+  @Column({ name: 'thumbnail_imageban_id', type: 'varchar', length: 20, nullable: true })
+  thumbnailImagebanId!: string | null;
+
+  @Column({ name: 'thumbnail_hosted', type: 'tinyint', width: 1, default: 0 })
+  thumbnailHosted!: number;
+
+  @Column({ name: 'notification_sent', type: 'tinyint', width: 1, default: 0 })
+  notificationSent!: number;
+
+  @Column({ name: 'is_placeholder', type: 'tinyint', width: 1, default: 0 })
+  isPlaceholder!: number;
+
   @Column({ name: 'is_published', type: 'tinyint', width: 1, default: 1 })
   isPublished!: number;
 

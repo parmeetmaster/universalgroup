@@ -8,6 +8,7 @@ import '../../../../core/router/routes.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/gradients.dart';
 import '../../../../core/theme/spacing.dart';
+import '../../../../core/util/image_utils.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/content_model.dart';
 
@@ -106,12 +107,15 @@ class _HeroSlide extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           // Backdrop — align subject upper third so big text below stays on dark area
-          CachedNetworkImage(
-            imageUrl: content.backdropUrl ?? content.posterUrl ?? '',
-            fit: BoxFit.cover,
-            alignment: const Alignment(0, -0.35),
-            errorWidget: (_, __, ___) => Container(color: AppColors.surface),
-          ),
+          if (resolveImageUrl(content.backdropUrl ?? content.posterUrl) != null)
+            CachedNetworkImage(
+              imageUrl: resolveImageUrl(content.backdropUrl ?? content.posterUrl)!,
+              fit: BoxFit.cover,
+              alignment: const Alignment(0, -0.35),
+              errorWidget: (_, __, ___) => Container(color: AppColors.surface),
+            )
+          else
+            Container(color: AppColors.surface),
           // Top shade
           Container(
             decoration: const BoxDecoration(gradient: AppGradients.heroTopShade),

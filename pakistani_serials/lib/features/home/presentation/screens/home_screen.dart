@@ -78,7 +78,7 @@ class _LoadedContent extends StatelessWidget {
       _GenreTab(s.genreComedy, 'comedy', Icons.mood_rounded),
       _GenreTab(s.genreDrama, 'drama', Icons.theater_comedy_rounded),
     ];
-    final hero = rails.isNotEmpty && rails.first.railType == 'hero' ? rails.first : null;
+    final hero = rails.where((r) => r.railType == 'hero' && r.items.isNotEmpty).firstOrNull;
     final recentRelease = rails.where((r) => r.railType == 'recent_release' && r.items.isNotEmpty).firstOrNull;
     final otherRails = rails.where((r) => r.railType != 'hero' && r.railType != 'recent_release' && r.items.isNotEmpty).toList();
 
@@ -144,10 +144,10 @@ class _LoadedContent extends StatelessWidget {
 }
 
 class _GenreTab {
+  const _GenreTab(this.label, this.slug, this.icon);
   final String label;
   final String slug;
   final IconData icon;
-  const _GenreTab(this.label, this.slug, this.icon);
 }
 
 class _GenresStrip extends StatelessWidget {
@@ -174,7 +174,7 @@ class _GenresStrip extends StatelessWidget {
             child: Container(
               width: 74,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [

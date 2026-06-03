@@ -19,7 +19,7 @@ Future<Either<Failure, T>> handle<T>(Future<T> Function() fn) async {
 }
 
 /// Unwraps {success, data} envelope.
-T unwrap<T>(Response res) {
+T unwrap<T>(Response<dynamic> res) {
   final body = res.data;
   if (body is Map && body['success'] == true) {
     return body['data'] as T;
@@ -33,7 +33,7 @@ T unwrap<T>(Response res) {
 
 /// Paginated envelope unwrap.
 ({List<T> items, int page, int limit, int total}) unwrapPaginated<T>(
-  Response res,
+  Response<dynamic> res,
   T Function(Map<String, dynamic>) fromJson,
 ) {
   final body = res.data;

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../theme/colors.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../theme/colors.dart';
 import 'routes.dart';
 
 /// Bottom nav: 5 tabs, always-visible labels, compact.
@@ -71,10 +71,10 @@ class AppShell extends StatelessWidget {
 }
 
 class _Tab {
+  const _Tab(this.path, this.icon, this.label);
   final String path;
   final IconData icon;
   final String label;
-  const _Tab(this.path, this.icon, this.label);
 }
 
 class _TabButton extends StatelessWidget {

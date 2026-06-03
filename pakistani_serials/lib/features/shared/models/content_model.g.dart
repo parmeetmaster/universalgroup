@@ -50,6 +50,7 @@ ContentModel _$ContentModelFromJson(Map<String, dynamic> json) => ContentModel(
           ?.map((e) => GenreModel.fromJson(e as Map<String, dynamic>))
           .toList(),
   lastEpisodeAt: json['lastEpisodeAt'] as String?,
+  totalLikes: (json['totalLikes'] as num?)?.toInt() ?? 0,
 );
 
 Map<String, dynamic> _$ContentModelToJson(ContentModel instance) =>
@@ -74,6 +75,7 @@ Map<String, dynamic> _$ContentModelToJson(ContentModel instance) =>
       'publishedAt': instance.publishedAt?.toIso8601String(),
       'genres': instance.genres,
       'lastEpisodeAt': instance.lastEpisodeAt,
+      'totalLikes': instance.totalLikes,
     };
 
 SeasonModel _$SeasonModelFromJson(Map<String, dynamic> json) => SeasonModel(

@@ -72,9 +72,6 @@ class _NativePlayerState extends State<_NativePlayer> {
         fit: BoxFit.contain,
         allowedScreenSleep: false,
         controlsConfiguration: BetterPlayerControlsConfiguration(
-          enableSkips: true,
-          enablePlayPause: true,
-          enableMute: true,
           enableFullscreen: false,
         ),
       ),
@@ -109,6 +106,7 @@ class _EmbedPlayer extends StatefulWidget {
 }
 
 class _EmbedPlayerState extends State<_EmbedPlayer> {
+  // ignore: unused_field
   InAppWebViewController? _controller;
   bool _disposed = false;
   bool _showHint = true;
@@ -243,16 +241,10 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
   }
 
   InAppWebViewSettings get _webviewSettings => InAppWebViewSettings(
-        javaScriptEnabled: true,
         useShouldOverrideUrlLoading: true,
         allowsInlineMediaPlayback: true,
         mediaPlaybackRequiresUserGesture: false,
         enableViewportScale: true,
-        domStorageEnabled: true,
-        javaScriptCanOpenWindowsAutomatically: false,
-        supportZoom: true,
-        displayZoomControls: false,
-        builtInZoomControls: true,
         userAgent: _ua,
       );
 
@@ -270,8 +262,6 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
         initialData: InAppWebViewInitialData(
           data: _buildYouTubeHtml(yt),
           baseUrl: WebUri.uri(Uri.https('www.youtube-nocookie.com', '/')),
-          encoding: 'utf-8',
-          mimeType: 'text/html',
         ),
         onWebViewCreated: (c) => _controller = c,
         onRenderProcessGone: (_, __) {
@@ -287,8 +277,6 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
         initialData: InAppWebViewInitialData(
           data: _buildDailymotionHtml(dm),
           baseUrl: WebUri.uri(Uri.https('www.dailymotion.com', '/')),
-          encoding: 'utf-8',
-          mimeType: 'text/html',
         ),
         onWebViewCreated: (c) => _controller = c,
         onRenderProcessGone: (_, __) {

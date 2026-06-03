@@ -7,15 +7,15 @@ import '../../../shared/models/content_model.dart';
 sealed class WatchlistEvent {}
 
 class WatchlistToggled extends WatchlistEvent {
-  final ContentModel content;
   WatchlistToggled(this.content);
+  final ContentModel content;
 }
 
 class WatchlistCleared extends WatchlistEvent {}
 
 class WatchlistState extends Equatable {
-  final List<ContentModel> items;
   const WatchlistState({this.items = const []});
+  final List<ContentModel> items;
 
   bool contains(String slug) => items.any((c) => c.slug == slug);
 

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/spacing.dart';
+import '../../../../core/util/image_utils.dart';
 import '../../../../core/widgets/empty_view.dart';
 import '../../../../di/injection.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -84,7 +85,7 @@ class _SearchViewState extends State<_SearchView> {
                               width: 48,
                               height: 72,
                               child: CachedNetworkImage(
-                                imageUrl: c.posterUrl ?? '',
+                                imageUrl: resolveImageUrl(c.posterUrl) ?? '',
                                 fit: BoxFit.cover,
                                 errorWidget: (_, __, ___) =>
                                     Container(color: AppColors.surfaceElevated),

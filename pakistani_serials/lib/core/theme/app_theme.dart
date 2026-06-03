@@ -8,13 +8,10 @@ class AppTheme {
   const AppTheme._();
 
   static ThemeData dark(Locale? locale) {
-    final colorScheme = ColorScheme.dark(
+    const colorScheme = ColorScheme.dark(
       primary: AppColors.accent,
-      onPrimary: Colors.white,
       secondary: AppColors.accentBright,
-      onSecondary: Colors.white,
       surface: AppColors.surface,
-      onSurface: AppColors.onSurface,
       surfaceContainerHighest: AppColors.surfaceHighest,
       error: AppColors.error,
       onError: Colors.white,
@@ -69,7 +66,7 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.onSurface,
-          side: const BorderSide(color: AppColors.outline, width: 1),
+          side: const BorderSide(color: AppColors.outline),
           minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
@@ -118,17 +115,17 @@ class AppTheme {
         space: 1,
       ),
 
-      chipTheme: ChipThemeData(
+      chipTheme: const ChipThemeData(
         backgroundColor: AppColors.surfaceElevated,
         selectedColor: AppColors.accent,
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
           color: AppColors.onSurface,
           fontWeight: FontWeight.w600,
           fontSize: 13,
         ),
-        side: const BorderSide(color: Colors.transparent),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        shape: const StadiumBorder(),
+        side: BorderSide(color: Colors.transparent),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        shape: StadiumBorder(),
       ),
 
       progressIndicatorTheme: const ProgressIndicatorThemeData(
@@ -145,7 +142,7 @@ class AppTheme {
         ),
       ),
 
-      bottomSheetTheme: BottomSheetThemeData(
+      bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.surfaceElevated,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),

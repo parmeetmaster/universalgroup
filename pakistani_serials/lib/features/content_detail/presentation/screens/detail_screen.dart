@@ -2,13 +2,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/router/routes.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/spacing.dart';
+import '../../../../core/util/image_utils.dart' show resolveImageUrl, formatCount;
 import '../../../../core/widgets/error_view.dart';
-import 'package:share_plus/share_plus.dart';
-
 import '../../../../di/injection.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../home/presentation/widgets/content_rail.dart';
@@ -115,8 +115,8 @@ class _LoadedState extends State<_Loaded> {
       ));
   }
 
-  Future<void> _shareDrama(BuildContext context, dynamic content) async {
-    final title = content.title ?? 'Pakistani Serial';
+  Future<void> _shareDrama(BuildContext context, ContentModel content) async {
+    final title = content.title;
     final url = 'https://global.animekill.com/api/pakistani-serials/content/${content.slug}';
     await Share.share(
       'Watch $title on Pakistani Serials\n$url',
@@ -164,7 +164,9 @@ class _LoadedState extends State<_Loaded> {
                     onToggleList: () => context
                         .read<DetailBloc>()
                         .add(DetailWatchlistToggled()),
-                    onLike: () => _showComingSoon(context, 'Like'),
+                    isLiked: state.isLiked,
+                    totalLikes: state.totalLikes,
+                    onLike: () => context.read<DetailBloc>().add(DetailLikeToggled()),
                     onDownload: () => _showComingSoon(context, 'Download'),
                     onShare: () => _shareDrama(context, c),
                   ),
@@ -305,12 +307,15 @@ class _Hero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          CachedNetworkImage(
-            imageUrl: content.backdropUrl ?? content.posterUrl ?? '',
-            fit: BoxFit.cover,
-            alignment: const Alignment(0, -0.25),
-            errorWidget: (_, __, ___) => Container(color: AppColors.surface),
-          ),
+          if (resolveImageUrl(content.backdropUrl ?? content.posterUrl) != null)
+            CachedNetworkImage(
+              imageUrl: resolveImageUrl(content.backdropUrl ?? content.posterUrl)!,
+              fit: BoxFit.cover,
+              alignment: const Alignment(0, -0.25),
+              errorWidget: (_, __, ___) => Container(color: AppColors.surface),
+            )
+          else
+            Container(color: AppColors.surface),
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -520,7 +525,7 @@ class _PlayAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = hasEpisodes
-        ? 'Play S${currentSeason}:E${firstEpNumber ?? 1}'
+        ? 'Play S$currentSeason:E${firstEpNumber ?? 1}'
         : 'No Episodes Yet';
     return SizedBox(
       width: double.infinity,
@@ -562,18 +567,23 @@ class _SecondaryActions extends StatelessWidget {
   const _SecondaryActions({
     required this.inWatchlist,
     required this.onToggleList,
+    required this.isLiked,
+    required this.totalLikes,
     required this.onLike,
     required this.onDownload,
     required this.onShare,
   });
   final bool inWatchlist;
   final VoidCallback onToggleList;
+  final bool isLiked;
+  final int totalLikes;
   final VoidCallback onLike;
   final VoidCallback onDownload;
   final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
+    final likeLabel = totalLikes > 0 ? formatCount(totalLikes) : 'Like';
     return Row(
       children: [
         Expanded(
@@ -583,7 +593,13 @@ class _SecondaryActions extends StatelessWidget {
             onTap: onToggleList,
           ),
         ),
-        Expanded(child: _Btn(icon: Icons.thumb_up_outlined, label: 'Like', onTap: onLike)),
+        Expanded(
+          child: _Btn(
+            icon: isLiked ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
+            label: likeLabel,
+            onTap: onLike,
+          ),
+        ),
         Expanded(child: _Btn(icon: Icons.file_download_outlined, label: 'Download', onTap: onDownload)),
         Expanded(child: _Btn(icon: Icons.share_outlined, label: 'Share', onTap: onShare)),
       ],
@@ -766,7 +782,7 @@ class _SeasonsPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        showModalBottomSheet(
+        showModalBottomSheet<void>(
           context: context,
           backgroundColor: AppColors.surface,
           builder: (ctx) {
@@ -863,9 +879,9 @@ class _EpisodeTile extends StatelessWidget {
                     width: 128,
                     height: 72,
                     child: CachedNetworkImage(
-                      imageUrl: (episode.thumbnailUrl?.isNotEmpty ?? false)
-                          ? episode.thumbnailUrl!
-                          : fallbackImageUrl,
+                      imageUrl: resolveImageUrl(episode.thumbnailUrl) ??
+                          resolveImageUrl(fallbackImageUrl) ??
+                          '',
                       fit: BoxFit.cover,
                       placeholder: (_, __) =>
                           Container(color: AppColors.surfaceElevated),

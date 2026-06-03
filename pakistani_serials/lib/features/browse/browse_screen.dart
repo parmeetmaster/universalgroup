@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
+import '../../core/util/image_utils.dart';
 import '../../core/widgets/error_view.dart';
 import '../../di/injection.dart';
 import '../shared/data/api_service.dart';
@@ -200,7 +201,7 @@ class _BrowseCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: CachedNetworkImage(
-                imageUrl: content.posterUrl ?? '',
+                imageUrl: resolveImageUrl(content.posterUrl) ?? '',
                 fit: BoxFit.cover,
                 width: double.infinity,
                 placeholder: (_, __) =>

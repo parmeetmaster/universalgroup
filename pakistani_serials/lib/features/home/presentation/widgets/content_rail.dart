@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/spacing.dart';
+import '../../../../core/util/image_utils.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/content_model.dart';
 
@@ -153,19 +154,9 @@ class _PosterCard extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: CachedNetworkImage(
-                      imageUrl: content.posterUrl ?? '',
-                      fit: BoxFit.cover,
-                      width: w,
-                      height: h,
-                      placeholder: (_, __) =>
-                          Container(color: AppColors.surfaceElevated),
-                      errorWidget: (_, __, ___) => Container(
-                        color: AppColors.surfaceElevated,
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.broken_image_outlined,
-                            color: AppColors.onSurfaceMuted, size: 28),
-                      ),
+                    child: _buildImage(
+                      resolveImageUrl(content.posterUrl),
+                      w, h, content.title,
                     ),
                   ),
                   // Subtle bottom gradient for poster overlay
@@ -276,15 +267,9 @@ class _LandscapeCard extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: CachedNetworkImage(
-                      imageUrl: content.backdropUrl ?? content.posterUrl ?? '',
-                      fit: BoxFit.cover,
-                      width: w,
-                      height: h,
-                      placeholder: (_, __) =>
-                          Container(color: AppColors.surfaceElevated),
-                      errorWidget: (_, __, ___) =>
-                          Container(color: AppColors.surfaceElevated),
+                    child: _buildImage(
+                      resolveImageUrl(content.backdropUrl ?? content.posterUrl),
+                      w, h, content.title,
                     ),
                   ),
                   Positioned.fill(
@@ -417,13 +402,9 @@ class _Top10Row extends StatelessWidget {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: CachedNetworkImage(
-                              imageUrl: content.posterUrl ?? '',
-                              fit: BoxFit.cover,
-                              width: 120,
-                              height: 178,
-                              errorWidget: (_, __, ___) =>
-                                  Container(color: AppColors.surfaceElevated),
+                            child: _buildImage(
+                              resolveImageUrl(content.posterUrl),
+                              120, 178, content.title,
                             ),
                           ),
                           const Positioned(top: 6, left: 6, child: _NBadge()),
@@ -477,7 +458,7 @@ class _OutlinedRank extends StatelessWidget {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..color = Colors.white;
-    final fillStyle = TextStyle(
+    const fillStyle = TextStyle(
       fontSize: 180,
       height: 1,
       fontWeight: FontWeight.w900,
@@ -599,5 +580,59 @@ Color _statusColor(String status) {
       return const Color(0xFFF59E0B);
     default:
       return AppColors.onSurfaceMuted;
+  }
+}
+
+Widget _buildImage(String? url, double w, double h, String title) {
+  if (url == null || url.isEmpty) {
+    return _ImagePlaceholder(width: w, height: h, title: title);
+  }
+  return CachedNetworkImage(
+    imageUrl: url,
+    fit: BoxFit.cover,
+    width: w,
+    height: h,
+    placeholder: (_, __) => Container(color: AppColors.surfaceElevated),
+    errorWidget: (_, __, ___) =>
+        _ImagePlaceholder(width: w, height: h, title: title),
+  );
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  const _ImagePlaceholder({
+    required this.width,
+    required this.height,
+    required this.title,
+  });
+  final double width;
+  final double height;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final letter = title.isNotEmpty ? title[0].toUpperCase() : '?';
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.surfaceElevated,
+            AppColors.surfaceElevated.withValues(alpha: 0.6),
+          ],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        letter,
+        style: TextStyle(
+          color: AppColors.onSurfaceMuted,
+          fontSize: height * 0.3,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
   }
 }

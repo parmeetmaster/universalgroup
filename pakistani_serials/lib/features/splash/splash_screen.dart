@@ -1,11 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 
 import '../../core/config/app_config_store.dart';
 import '../../core/config/env.dart';
@@ -211,7 +211,7 @@ class _GateView extends StatelessWidget {
           primaryLabel: 'Update now',
           onPrimary: onUpdate,
           secondaryLabel: s.splashExit,
-          onSecondary: () => SystemNavigator.pop(),
+          onSecondary: SystemNavigator.pop,
         );
       case _Gate.maintenance:
         return _StopPanel(
@@ -221,7 +221,7 @@ class _GateView extends StatelessWidget {
           primaryLabel: s.splashRetry,
           onPrimary: onRetry,
           secondaryLabel: s.splashExit,
-          onSecondary: () => SystemNavigator.pop(),
+          onSecondary: SystemNavigator.pop,
         );
       case _Gate.error:
         return _StopPanel(
@@ -231,7 +231,7 @@ class _GateView extends StatelessWidget {
           primaryLabel: s.splashRetry,
           onPrimary: onRetry,
           secondaryLabel: s.splashExit,
-          onSecondary: () => SystemNavigator.pop(),
+          onSecondary: SystemNavigator.pop,
         );
     }
   }

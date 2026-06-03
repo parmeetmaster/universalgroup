@@ -5,9 +5,9 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 class SettingsState extends Equatable {
-  final Locale locale;
-
   const SettingsState({required this.locale});
+
+  final Locale locale;
 
   SettingsState copyWith({Locale? locale}) => SettingsState(locale: locale ?? this.locale);
 
@@ -18,8 +18,8 @@ class SettingsState extends Equatable {
 sealed class SettingsEvent {}
 
 class ChangeLocale extends SettingsEvent {
-  final Locale locale;
   ChangeLocale(this.locale);
+  final Locale locale;
 }
 
 @singleton

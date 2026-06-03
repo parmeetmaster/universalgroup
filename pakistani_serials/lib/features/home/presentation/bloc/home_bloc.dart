@@ -12,15 +12,15 @@ class HomeRefreshed extends HomeEvent {}
 enum HomeStatus { initial, loading, loaded, error }
 
 class HomeState extends Equatable {
-  final HomeStatus status;
-  final List<HomeRailModel> rails;
-  final String? errorMessage;
-
   const HomeState({
     this.status = HomeStatus.initial,
     this.rails = const [],
     this.errorMessage,
   });
+
+  final HomeStatus status;
+  final List<HomeRailModel> rails;
+  final String? errorMessage;
 
   HomeState copyWith({
     HomeStatus? status,

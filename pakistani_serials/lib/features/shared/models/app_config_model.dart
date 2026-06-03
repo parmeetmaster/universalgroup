@@ -1,15 +1,4 @@
 class AppConfigModel {
-  final String minAppVersion;
-  final String latestAppVersion;
-  final bool forceUpdate;
-  final bool maintenanceMode;
-  final String? maintenanceMessage;
-  final String? announcement;
-  final String? playStoreUrl;
-  final String? supportEmail;
-  final String? privacyUrl;
-  final String? termsUrl;
-
   const AppConfigModel({
     required this.minAppVersion,
     required this.latestAppVersion,
@@ -35,6 +24,17 @@ class AppConfigModel {
         privacyUrl: json['privacyUrl'] as String?,
         termsUrl: json['termsUrl'] as String?,
       );
+
+  final String minAppVersion;
+  final String latestAppVersion;
+  final bool forceUpdate;
+  final bool maintenanceMode;
+  final String? maintenanceMessage;
+  final String? announcement;
+  final String? playStoreUrl;
+  final String? supportEmail;
+  final String? privacyUrl;
+  final String? termsUrl;
 
   static const fallback = AppConfigModel(
     minAppVersion: '1.0.0',

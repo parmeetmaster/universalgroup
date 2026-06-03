@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:bloc/bloc.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -59,7 +58,7 @@ Future<void> bootstrap(Widget Function() builder) async {
 
 class _AppBlocObserver extends BlocObserver {
   @override
-  void onChange(BlocBase bloc, Change change) {
+  void onChange(BlocBase<dynamic> bloc, Change<dynamic> change) {
     super.onChange(bloc, change);
     assert(() {
       debugPrint('[${bloc.runtimeType}] ${change.nextState.runtimeType}');
@@ -68,7 +67,7 @@ class _AppBlocObserver extends BlocObserver {
   }
 
   @override
-  void onError(BlocBase bloc, Object error, StackTrace stackTrace) {
+  void onError(BlocBase<dynamic> bloc, Object error, StackTrace stackTrace) {
     debugPrint('[${bloc.runtimeType}] error: $error');
     super.onError(bloc, error, stackTrace);
   }

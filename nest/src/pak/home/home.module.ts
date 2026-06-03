@@ -10,5 +10,6 @@ import { PakHomeService } from './home.service';
   imports: [TypeOrmModule.forFeature([HomeRail, Drama, Episode], 'pak')],
   controllers: [PakHomeController],
   providers: [PakHomeService],
+  exports: [PakHomeService],
 })
 export class PakHomeModule {}

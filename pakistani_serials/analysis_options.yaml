@@ -1,28 +1,101 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
+# =============================================================================
+# analysis_options.yaml  —  Strict, production-grade lint setup for Flutter
+# Place this file at the ROOT of your project (next to pubspec.yaml).
 #
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
+# This config builds on `flutter_lints` (Flutter's official baseline) and adds
+# many extra rules for consistency, safety, and clean code.
+#
+# If you prefer an even stricter "batteries-included" set, swap the include
+# line for:  include: package:very_good_analysis/analysis_options.yaml
+# (add `very_good_analysis` to dev_dependencies first).
+# =============================================================================
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
-linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
-  rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+analyzer:
+  # Treat selected issues as errors so CI/builds fail on them.
+  errors:
+    # Make these WARNINGS into hard ERRORS:
+    missing_required_param: error
+    missing_return: error
+    invalid_annotation_target: ignore   # noise from json_serializable etc.
+    # Style rules kept as info (won't fail build, just show in IDE):
+    todo: ignore
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+  exclude:
+    - "**/*.g.dart"          # generated (build_runner)
+    - "**/*.freezed.dart"    # generated (freezed)
+    - "**/*.gr.dart"         # generated (auto_route)
+    - "**/*.mocks.dart"      # generated (mockito)
+    - "**/generated_plugin_registrant.dart"
+    - "lib/generated/**"
+    - "build/**"
+
+  language:
+    strict-casts: true       # disallow implicit dynamic -> type casts
+    strict-inference: true   # flag places where type can't be inferred
+    strict-raw-types: true   # flag raw generic types like List instead of List<T>
+
+linter:
+  rules:
+    # ---- Error prevention -------------------------------------------------
+    always_use_package_imports: false      # allow relative imports within lib
+    prefer_relative_imports: true          # ...and prefer them for own files
+    avoid_dynamic_calls: true
+    avoid_type_to_string: true
+    cancel_subscriptions: true
+    close_sinks: true
+    no_adjacent_strings_in_list: true
+    test_types_in_equals: true
+    throw_in_finally: true
+    unnecessary_statements: true
+    unrelated_type_equality_checks: true
+    use_build_context_synchronously: true  # crucial: no context after await
+    valid_regexps: true
+
+    # ---- Null safety / correctness ---------------------------------------
+    avoid_returning_null_for_void: true
+    null_check_on_nullable_type_parameter: true
+    prefer_null_aware_method_calls: true
+    tighten_type_of_initializing_formals: true
+
+    # ---- Style & consistency ---------------------------------------------
+    always_declare_return_types: true
+    annotate_overrides: true
+    avoid_redundant_argument_values: true
+    avoid_unnecessary_containers: true
+    avoid_void_async: true
+    camel_case_types: true
+    constant_identifier_names: true        # SCREAMING_CASE? No -> lowerCamelCase
+    directives_ordering: true              # sorted imports
+    file_names: true                       # snake_case file names
+    library_names: true
+    library_prefixes: true
+    non_constant_identifier_names: true    # lowerCamelCase for vars/functions
+    prefer_const_constructors: true
+    prefer_const_constructors_in_immutables: true
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_final_fields: true
+    prefer_final_in_for_each: true
+    prefer_final_locals: true
+    prefer_single_quotes: true
+    require_trailing_commas: true          # nicer git diffs + auto-format
+    sort_child_properties_last: true       # `child:` last in widget ctors
+    sort_constructors_first: true
+    sort_unnamed_constructors_first: true
+    type_annotate_public_apis: true
+    unnecessary_lambdas: true
+    unnecessary_parenthesis: true
+    use_key_in_widget_constructors: true   # always pass Key to widgets
+    use_named_constants: true
+    use_super_parameters: true             # super.key instead of Key? key
+
+    # ---- Documentation (optional; enable for packages/libraries) ---------
+    # public_member_api_docs: true         # uncomment if publishing a package
+
+    # ---- Performance ------------------------------------------------------
+    avoid_function_literals_in_foreach_calls: true
+    prefer_foreach: true
+
+# Format is enforced separately with `dart format` (line length 80 by default).

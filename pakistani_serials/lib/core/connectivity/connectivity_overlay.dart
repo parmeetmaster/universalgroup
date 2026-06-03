@@ -4,8 +4,8 @@ import '../theme/colors.dart';
 import 'connectivity_service.dart';
 
 class ConnectivityOverlay extends StatefulWidget {
-  final Widget child;
   const ConnectivityOverlay({super.key, required this.child});
+  final Widget child;
 
   @override
   State<ConnectivityOverlay> createState() => _ConnectivityOverlayState();
@@ -89,8 +89,8 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay>
 }
 
 class _Banner extends StatelessWidget {
-  final bool isOnline;
   const _Banner({required this.isOnline});
+  final bool isOnline;
 
   @override
   Widget build(BuildContext context) {

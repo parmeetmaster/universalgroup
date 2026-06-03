@@ -53,9 +53,9 @@ class ShimmerHomeSkeleton extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.x3),
           for (int i = 0; i < 3; i++) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: const ShimmerBox(width: 180, height: 20),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: ShimmerBox(width: 180, height: 20),
             ),
             const SizedBox(height: AppSpacing.md),
             SingleChildScrollView(

@@ -9,12 +9,12 @@ import '../../features/player/presentation/screens/player_screen.dart';
 import '../../features/player/presentation/screens/sources_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
-import '../../features/watchlist/watchlist_screen.dart';
 import '../../features/shared/models/content_model.dart';
 import '../../features/splash/splash_screen.dart';
+import '../../features/watchlist/watchlist_screen.dart';
 import '../theme/colors.dart';
-import 'routes.dart';
 import 'app_shell.dart';
+import 'routes.dart';
 
 @singleton
 class AppRouter {

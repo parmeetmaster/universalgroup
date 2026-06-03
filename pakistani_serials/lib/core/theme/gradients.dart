@@ -31,7 +31,6 @@ class AppGradients {
   );
 
   static const RadialGradient splash = RadialGradient(
-    center: Alignment.center,
     radius: 1.2,
     colors: [Color(0xFF1A1200), Color(0xFF000000)],
   );

@@ -29,7 +29,6 @@ class _GradientButtonState extends State<GradientButton> with SingleTickerProvid
     duration: const Duration(milliseconds: 120),
     value: 1,
     lowerBound: 0.97,
-    upperBound: 1,
   );
 
   @override

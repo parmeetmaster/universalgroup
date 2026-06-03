@@ -16,15 +16,12 @@ class DioClient {
       connectTimeout: Env.httpConnectTimeout,
       receiveTimeout: Env.httpReceiveTimeout,
       contentType: Headers.jsonContentType,
-      responseType: ResponseType.json,
     ));
 
     _dio.interceptors.addAll([
       _authInterceptor,
       RetryInterceptor(
         dio: _dio,
-        logPrint: null,
-        retries: 3,
         retryableExtraStatuses: const {502, 503, 504},
       ),
       ErrorInterceptor(),
@@ -34,10 +31,6 @@ class DioClient {
         PrettyDioLogger(
           requestHeader: true,
           requestBody: true,
-          responseHeader: false,
-          responseBody: true,
-          error: true,
-          compact: true,
           maxWidth: 120,
         ),
     ]);
