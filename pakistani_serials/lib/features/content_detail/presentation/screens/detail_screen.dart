@@ -4,14 +4,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../../core/ads/ad_service.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/util/image_utils.dart' show resolveImageUrl, formatCount;
+import '../../../../core/util/watch_history.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../di/injection.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../../home/presentation/widgets/content_rail.dart';
+import '../../../shared/data/api_service.dart';
 import '../../../shared/models/content_model.dart';
 import '../bloc/detail_bloc.dart';
 
@@ -115,6 +119,18 @@ class _LoadedState extends State<_Loaded> {
       ));
   }
 
+  void _saveAndPlay(BuildContext context, String slug, int season, EpisodeModel ep) {
+    getIt<WatchHistoryService>().saveLastPlayed(slug, season, ep.episodeNumber);
+    // Show interstitial ad before navigating to sources
+    getIt<AdService>().showInterstitial(
+      onDone: () {
+        if (context.mounted) {
+          context.push(AppRoutes.sources, extra: ep);
+        }
+      },
+    );
+  }
+
   Future<void> _shareDrama(BuildContext context, ContentModel content) async {
     final title = content.title;
     final url = 'https://global.animekill.com/api/pakistani-serials/content/${content.slug}';
@@ -142,22 +158,30 @@ class _LoadedState extends State<_Loaded> {
                 delegate: SliverChildListDelegate([
                   _MetaRow(content: c),
                   const SizedBox(height: 14),
-                  _PlayAction(
-                    content: c,
-                    hasEpisodes: state.episodes.isNotEmpty,
-                    currentSeason: state.currentSeason,
-                    firstEpNumber: state.episodes.isNotEmpty
-                        ? state.episodes.first.episodeNumber
-                        : null,
-                    onPlay: () {
-                      if (state.episodes.isNotEmpty) {
-                        context.push(
-                          AppRoutes.sources,
-                          extra: state.episodes.first,
-                        );
-                      }
-                    },
-                  ),
+                  Builder(builder: (ctx) {
+                    final lp = state.lastPlayed;
+                    // Find last played episode in current list, fallback to first
+                    final targetEp = lp != null
+                        ? state.episodes.cast<EpisodeModel?>().firstWhere(
+                              (e) => e!.episodeNumber == lp.episodeNumber,
+                              orElse: () => null,
+                            ) ?? (state.episodes.isNotEmpty ? state.episodes.first : null)
+                        : (state.episodes.isNotEmpty ? state.episodes.first : null);
+                    final displaySeason = lp?.seasonNumber ?? state.currentSeason;
+                    final displayEp = targetEp?.episodeNumber ?? 1;
+                    return _PlayAction(
+                      content: c,
+                      hasEpisodes: state.episodes.isNotEmpty,
+                      currentSeason: displaySeason,
+                      epNumber: displayEp,
+                      isResume: lp != null,
+                      onPlay: () {
+                        if (targetEp != null) {
+                          _saveAndPlay(context, c.slug, state.currentSeason, targetEp);
+                        }
+                      },
+                    );
+                  }),
                   const SizedBox(height: 10),
                   _SecondaryActions(
                     inWatchlist: state.inWatchlist,
@@ -177,6 +201,7 @@ class _LoadedState extends State<_Loaded> {
                     const SizedBox(height: 14),
                     _GenreRow(genres: c.genres!),
                   ],
+                  const SizedBox(height: 16),
                   const SizedBox(height: 20),
                   _TabsBar(
                     tabs: [S.of(context)!.detailEpisodes, S.of(context)!.detailRelated],
@@ -207,8 +232,8 @@ class _LoadedState extends State<_Loaded> {
                             index: e.key,
                             fallbackImageUrl:
                                 c.posterUrl ?? c.backdropUrl ?? '',
-                            onTap: () => context.push(
-                                AppRoutes.sources, extra: e.value),
+                            onTap: () => _saveAndPlay(
+                                context, c.slug, state.currentSeason, e.value),
                           ),
                         ),
                   const SizedBox(height: 22),
@@ -216,18 +241,28 @@ class _LoadedState extends State<_Loaded> {
               ),
             ),
             if (state.related.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  key: _relatedKey,
-                  padding: const EdgeInsets.only(top: 4, bottom: 60),
-                  child: ContentRail(
-                    title: S.of(context)!.detailRelated,
-                    items: state.related,
+              SliverPadding(
+                key: _relatedKey,
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg, 4, AppSpacing.lg, 0),
+                sliver: SliverGrid(
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 0.55,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => _RelatedCard(content: state.related[i]),
+                    childCount: state.related.length,
                   ),
                 ),
               )
             else
-              const SliverToBoxAdapter(child: SizedBox(height: 60)),
+              const SliverToBoxAdapter(child: SizedBox.shrink()),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            const SliverToBoxAdapter(child: SizedBox(height: 60)),
           ],
         ),
         // Floating top bar (gradient fade)
@@ -256,9 +291,8 @@ class _LoadedState extends State<_Loaded> {
                     icon: const _RoundIcon(icon: Icons.arrow_back_rounded),
                   ),
                   const Spacer(),
-                  IconButton(
-                    onPressed: () => _showComingSoon(context, 'Cast'),
-                    icon: const _RoundIcon(icon: Icons.cast_rounded),
+                  _CastButton(
+                    episodes: state.episodes,
                   ),
                   IconButton(
                     onPressed: () => _shareDrama(context, c),
@@ -312,10 +346,10 @@ class _Hero extends StatelessWidget {
               imageUrl: resolveImageUrl(content.backdropUrl ?? content.posterUrl)!,
               fit: BoxFit.cover,
               alignment: const Alignment(0, -0.25),
-              errorWidget: (_, __, ___) => Container(color: AppColors.surface),
+              errorWidget: (_, __, ___) => _HeroPlaceholder(title: content.title),
             )
           else
-            Container(color: AppColors.surface),
+            _HeroPlaceholder(title: content.title),
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -448,6 +482,19 @@ class _MetaRow extends StatelessWidget {
     }
     bits.add(_dot());
     final s = content.status.toLowerCase();
+    final isActivelyAiring = s == 'ongoing' && _isRecentlyAired(content.lastEpisodeAt);
+    final statusLabel = isActivelyAiring
+        ? 'On Air'
+        : s == 'upcoming'
+            ? 'Upcoming'
+            : s == 'ongoing'
+                ? 'On Break'
+                : 'Complete';
+    final statusColor = isActivelyAiring
+        ? const Color(0xFF22C55E)
+        : s == 'upcoming'
+            ? const Color(0xFFF59E0B)
+            : Colors.white54;
     bits.add(Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -455,21 +502,13 @@ class _MetaRow extends StatelessWidget {
           width: 6,
           height: 6,
           decoration: BoxDecoration(
-            color: s == 'ongoing'
-                ? const Color(0xFF22C55E)
-                : (s == 'upcoming'
-                    ? const Color(0xFFF59E0B)
-                    : Colors.white54),
+            color: statusColor,
             shape: BoxShape.circle,
           ),
         ),
         const SizedBox(width: 5),
         Text(
-          s == 'ongoing'
-              ? 'On Air'
-              : s == 'upcoming'
-                  ? 'Upcoming'
-                  : 'Complete',
+          statusLabel,
           style: const TextStyle(
             color: Colors.white,
             fontSize: 13,
@@ -498,6 +537,13 @@ class _MetaRow extends StatelessWidget {
     return '${months[d.month - 1]} ${d.day}';
   }
 
+  bool _isRecentlyAired(String? lastEpisodeAt) {
+    if (lastEpisodeAt == null || lastEpisodeAt.isEmpty) return false;
+    final d = DateTime.tryParse(lastEpisodeAt);
+    if (d == null) return false;
+    return DateTime.now().difference(d).inDays <= 30;
+  }
+
   Widget _dot() => Container(
         width: 3,
         height: 3,
@@ -513,19 +559,21 @@ class _PlayAction extends StatelessWidget {
     required this.content,
     required this.hasEpisodes,
     required this.currentSeason,
-    required this.firstEpNumber,
+    required this.epNumber,
     required this.onPlay,
+    this.isResume = false,
   });
   final ContentModel content;
   final bool hasEpisodes;
   final int currentSeason;
-  final int? firstEpNumber;
+  final int epNumber;
   final VoidCallback onPlay;
+  final bool isResume;
 
   @override
   Widget build(BuildContext context) {
     final label = hasEpisodes
-        ? 'Play S$currentSeason:E${firstEpNumber ?? 1}'
+        ? '${isResume ? 'Resume' : 'Play'} S$currentSeason:E$epNumber'
         : 'No Episodes Yet';
     return SizedBox(
       width: double.infinity,
@@ -930,38 +978,40 @@ class _EpisodeTile extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  if (episode.durationSeconds > 0) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      _fmtDuration(episode.durationSeconds),
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (episode.durationSeconds > 0) ...[
+                        Text(
+                          _fmtDuration(episode.durationSeconds),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (episode.airDate != null) ...[
+                          const SizedBox(width: 4),
+                          const Text('·', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                          const SizedBox(width: 4),
+                        ],
+                      ],
+                      if (episode.airDate != null)
+                        Text(
+                          _fmtAirDate(episode.airDate!),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
             const SizedBox(width: 6),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(const SnackBar(
-                    content: Text('Download coming soon'),
-                    duration: Duration(seconds: 2),
-                    behavior: SnackBarBehavior.floating,
-                  ));
-              },
-              child: const Icon(
-                Icons.file_download_outlined,
-                color: Colors.white54,
-                size: 22,
-              ),
-            ),
+            _DownloadButton(episodeId: episode.id),
           ],
         ),
       ),
@@ -973,6 +1023,21 @@ class _EpisodeTile extends StatelessWidget {
     if (m < 60) return '${m}m';
     final h = m ~/ 60;
     return '${h}h ${m % 60}m';
+  }
+
+  String _fmtAirDate(String dateStr) {
+    final d = DateTime.tryParse(dateStr);
+    if (d == null) return dateStr;
+    final now = DateTime.now();
+    final diff = DateTime(now.year, now.month, now.day)
+        .difference(DateTime(d.year, d.month, d.day))
+        .inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    if (diff < 7) return '${diff}d ago';
+    if (diff < 30) return '${diff ~/ 7}w ago';
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${months[d.month - 1]} ${d.day}';
   }
 }
 
@@ -1016,6 +1081,222 @@ class _EpisodeEmptyState extends StatelessWidget {
               color: Colors.white54,
               fontSize: 12,
               height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroPlaceholder extends StatelessWidget {
+  const _HeroPlaceholder({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final letter = title.isNotEmpty ? title[0].toUpperCase() : '?';
+    return Container(
+      color: AppColors.surfaceElevated,
+      alignment: Alignment.center,
+      child: Text(
+        letter,
+        style: const TextStyle(
+          color: AppColors.onSurfaceMuted,
+          fontSize: 120,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _DownloadButton extends StatefulWidget {
+  const _DownloadButton({required this.episodeId});
+  final String episodeId;
+
+  @override
+  State<_DownloadButton> createState() => _DownloadButtonState();
+}
+
+class _DownloadButtonState extends State<_DownloadButton> {
+  bool _loading = false;
+
+  Future<void> _onTap() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      final api = getIt<ApiService>();
+      final servers = await api.resolveEpisode(widget.episodeId);
+      // Find first MP4/HLS server URL
+      final server = servers.isNotEmpty ? servers.first : null;
+      if (server == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(const SnackBar(
+              content: Text('No download source available'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ));
+        }
+        return;
+      }
+      // Open in Chrome for download
+      final uri = Uri.parse(server.url);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            content: Text('Download failed: $e'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _onTap,
+      child: _loading
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white54,
+              ),
+            )
+          : const Icon(
+              Icons.file_download_outlined,
+              color: Colors.white54,
+              size: 22,
+            ),
+    );
+  }
+}
+
+class _CastButton extends StatefulWidget {
+  const _CastButton({required this.episodes});
+  final List<EpisodeModel> episodes;
+
+  @override
+  State<_CastButton> createState() => _CastButtonState();
+}
+
+class _CastButtonState extends State<_CastButton> {
+  bool _loading = false;
+
+  Future<void> _onCast() async {
+    if (_loading || widget.episodes.isEmpty) return;
+    setState(() => _loading = true);
+    try {
+      final api = getIt<ApiService>();
+      final ep = widget.episodes.first;
+      final servers = await api.resolveEpisode(ep.id);
+      final mp4 = servers.where((s) => s.format == 'mp4').firstOrNull ?? servers.firstOrNull;
+      if (mp4 == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(const SnackBar(
+              content: Text('No castable source found'),
+              behavior: SnackBarBehavior.floating,
+            ));
+        }
+        return;
+      }
+      // Open video URL via system intent — cast apps (Google Home, AllCast, etc.) will appear
+      await launchUrl(
+        Uri.parse(mp4.url),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            content: Text('Cast failed: $e'),
+            behavior: SnackBarBehavior.floating,
+          ));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: widget.episodes.isEmpty ? null : _onCast,
+      icon: _loading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : const _RoundIcon(icon: Icons.cast_rounded),
+    );
+  }
+}
+
+class _RelatedCard extends StatelessWidget {
+  const _RelatedCard({required this.content});
+  final ContentModel content;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.detailPath(content.slug)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: resolveImageUrl(content.posterUrl) != null
+                  ? CachedNetworkImage(
+                      imageUrl: resolveImageUrl(content.posterUrl)!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      placeholder: (_, __) =>
+                          Container(color: AppColors.surfaceElevated),
+                      errorWidget: (_, __, ___) =>
+                          Container(color: AppColors.surfaceElevated),
+                    )
+                  : Container(
+                      color: AppColors.surfaceElevated,
+                      alignment: Alignment.center,
+                      child: Text(
+                        content.title.isNotEmpty
+                            ? content.title[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          color: AppColors.onSurfaceMuted,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            content.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
             ),
           ),
         ],

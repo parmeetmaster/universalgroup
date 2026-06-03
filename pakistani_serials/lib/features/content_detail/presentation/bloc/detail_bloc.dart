@@ -4,9 +4,11 @@ import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/util/watch_history.dart';
 import '../../../shared/data/api_service.dart';
 import '../../../shared/models/content_model.dart';
 import '../../../watchlist/presentation/bloc/watchlist_bloc.dart';
+
 
 sealed class DetailEvent {}
 class DetailLoad extends DetailEvent {
@@ -33,6 +35,7 @@ class DetailState extends Equatable {
     this.inWatchlist = false,
     this.isLiked = false,
     this.totalLikes = 0,
+    this.lastPlayed,
     this.errorMessage,
   });
 
@@ -45,6 +48,7 @@ class DetailState extends Equatable {
   final bool inWatchlist;
   final bool isLiked;
   final int totalLikes;
+  final LastPlayed? lastPlayed;
   final String? errorMessage;
 
   DetailState copyWith({
@@ -57,6 +61,8 @@ class DetailState extends Equatable {
     bool? inWatchlist,
     bool? isLiked,
     int? totalLikes,
+    LastPlayed? lastPlayed,
+    bool clearLastPlayed = false,
     String? errorMessage,
   }) =>
       DetailState(
@@ -69,12 +75,13 @@ class DetailState extends Equatable {
         inWatchlist: inWatchlist ?? this.inWatchlist,
         isLiked: isLiked ?? this.isLiked,
         totalLikes: totalLikes ?? this.totalLikes,
+        lastPlayed: clearLastPlayed ? null : (lastPlayed ?? this.lastPlayed),
         errorMessage: errorMessage,
       );
 
   @override
   List<Object?> get props =>
-      [status, content, seasons, episodes, related, currentSeason, inWatchlist, isLiked, totalLikes, errorMessage];
+      [status, content, seasons, episodes, related, currentSeason, inWatchlist, isLiked, totalLikes, lastPlayed, errorMessage];
 }
 
 const _deviceIdKey = 'pak_device_id';
@@ -82,7 +89,7 @@ const _likedKey = 'pak_liked_slugs';
 
 @injectable
 class DetailBloc extends Bloc<DetailEvent, DetailState> {
-  DetailBloc(this._api, this._watchlist) : super(const DetailState()) {
+  DetailBloc(this._api, this._watchlist, this._watchHistory) : super(const DetailState()) {
     on<DetailLoad>(_onLoad);
     on<DetailSeasonChanged>(_onSeasonChanged);
     on<DetailWatchlistToggled>(_onWatchlistToggled);
@@ -91,6 +98,7 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
 
   final ApiService _api;
   final WatchlistBloc _watchlist;
+  final WatchHistoryService _watchHistory;
 
   static Future<String> _getDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -128,6 +136,9 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
       final likedSlugs = await _getLocalLikedSlugs();
       final isLiked = likedSlugs.contains(e.slug);
 
+      // Load last played episode for this drama
+      final lp = _watchHistory.getLastPlayed(e.slug);
+
       // Record view
       _api.recordView(e.slug).catchError((_) {});
 
@@ -141,6 +152,7 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
         inWatchlist: _watchlist.state.contains(content.slug),
         isLiked: isLiked,
         totalLikes: content.totalLikes,
+        lastPlayed: lp,
       ));
     } catch (err) {
       emit(state.copyWith(status: DetailStatus.error, errorMessage: err.toString()));

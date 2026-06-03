@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ads/ad_service.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
@@ -123,19 +124,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                       ),
                     );
                   }
-                  return GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.lg, 10, AppSpacing.lg, 90),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 18,
-                      childAspectRatio: 0.58,
-                    ),
-                    itemCount: items.length,
-                    itemBuilder: (ctx, i) => _BrowseCard(content: items[i]),
-                  );
+                  return _BrowseGridWithAds(items: items);
                 },
               ),
             ),
@@ -187,7 +176,7 @@ class _GenrePill extends StatelessWidget {
 }
 
 class _BrowseCard extends StatelessWidget {
-  const _BrowseCard({required this.content});
+  const _BrowseCard({super.key, required this.content});
   final ContentModel content;
 
   @override
@@ -225,6 +214,64 @@ class _BrowseCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BrowseGridWithAds extends StatelessWidget {
+  const _BrowseGridWithAds({required this.items});
+  final List<ContentModel> items;
+
+  // 3 rows x 3 cols = 9 items per chunk, then 1 ad slot
+  static const _chunkSize = 9;
+
+  int get _sectionCount {
+    if (items.isEmpty) return 0;
+    final chunks = (items.length / _chunkSize).ceil();
+    // chunks + (chunks - 1) ads
+    return chunks + (chunks - 1).clamp(0, chunks);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 90),
+      itemCount: _sectionCount,
+      itemBuilder: (ctx, sectionIndex) {
+        // Even indices = grid chunk, odd indices = ad
+        if (sectionIndex.isOdd) {
+          return const Padding(
+            key: ValueKey('browse-ad'),
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: AdService.browseNativeAd,
+          );
+        }
+
+        final chunkIndex = sectionIndex ~/ 2;
+        final start = chunkIndex * _chunkSize;
+        final end = (start + _chunkSize).clamp(0, items.length);
+        final chunk = items.sublist(start, end);
+
+        return GridView.builder(
+          key: ValueKey('browse-chunk-$chunkIndex'),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.lg, chunkIndex == 0 ? 10 : 0, AppSpacing.lg, 18,
+          ),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 18,
+            childAspectRatio: 0.58,
+          ),
+          itemCount: chunk.length,
+          itemBuilder: (ctx, i) => _BrowseCard(
+            key: ValueKey('browse-${chunk[i].slug}'),
+            content: chunk[i],
+          ),
+        );
+      },
     );
   }
 }

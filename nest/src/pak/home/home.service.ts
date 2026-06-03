@@ -73,10 +73,10 @@ export class PakHomeService {
 
   private async buildLatestReleasesRail(): Promise<HomeRailPayload> {
     const rows: { drama_id: string; last_ep: string }[] = await this.episodeRepo.query(
-      `SELECT e.drama_id, MAX(e.created_at) AS last_ep
+      `SELECT e.drama_id, MAX(COALESCE(e.air_date, e.created_at)) AS last_ep
        FROM episodes e
        JOIN dramas d ON d.id = e.drama_id AND d.is_published = 1 AND d.deleted_at IS NULL
-         AND d.poster_url IS NOT NULL       WHERE e.created_at > NOW() - INTERVAL 24 HOUR
+         AND d.poster_url IS NOT NULL       WHERE COALESCE(e.air_date, e.created_at) > NOW() - INTERVAL 24 HOUR
        GROUP BY e.drama_id
        ORDER BY last_ep DESC
        LIMIT 20`,
@@ -86,10 +86,10 @@ export class PakHomeService {
     if (rows.length === 0) {
       const fallbackRows: { drama_id: string; last_ep: string }[] =
         await this.episodeRepo.query(
-          `SELECT e.drama_id, MAX(e.created_at) AS last_ep
+          `SELECT e.drama_id, MAX(COALESCE(e.air_date, e.created_at)) AS last_ep
            FROM episodes e
            JOIN dramas d ON d.id = e.drama_id AND d.is_published = 1 AND d.deleted_at IS NULL
-             AND d.poster_url IS NOT NULL           WHERE e.created_at > NOW() - INTERVAL 7 DAY
+             AND d.poster_url IS NOT NULL           WHERE COALESCE(e.air_date, e.created_at) > NOW() - INTERVAL 7 DAY
            GROUP BY e.drama_id
            ORDER BY last_ep DESC
            LIMIT 20`,

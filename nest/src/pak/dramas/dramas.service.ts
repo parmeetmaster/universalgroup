@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Drama } from '../entities/drama.entity';
 import { Episode } from '../entities/episode.entity';
+import { HomeRail } from '../entities/home-rail.entity';
+import { DramaStatusEnum } from '../entities/enums';
 import { ListDramasDto } from './dto/list-dramas.dto';
 import { Paginated } from '../common/pagination.dto';
 
@@ -11,7 +13,100 @@ export class PakDramasService {
   constructor(
     @InjectRepository(Drama, 'pak') private readonly repo: Repository<Drama>,
     @InjectRepository(Episode, 'pak') private readonly episodeRepo: Repository<Episode>,
+    @InjectRepository(HomeRail, 'pak') private readonly railRepo: Repository<HomeRail>,
   ) {}
+
+  // ── Rail dramas cache (5 min TTL) ──
+
+  private railCache = new Map<string, { data: any; expires: number }>();
+
+  private getCached(key: string): any | null {
+    const entry = this.railCache.get(key);
+    if (!entry || Date.now() > entry.expires) {
+      this.railCache.delete(key);
+      return null;
+    }
+    return entry.data;
+  }
+
+  private setCache(key: string, data: any): void {
+    this.railCache.set(key, { data, expires: Date.now() + 5 * 60 * 1000 });
+  }
+
+  async railDramas(
+    railId: string,
+    genre: string | undefined,
+    page: number,
+    limit: number,
+  ): Promise<Paginated<Drama>> {
+    const cacheKey = `rail:${railId}:g=${genre ?? ''}:p=${page}:l=${limit}`;
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
+    let qb = this.repo
+      .createQueryBuilder('d')
+      .leftJoinAndSelect('d.genres', 'g')
+      .where('d.isPublished = 1')
+      .andWhere('d.deletedAt IS NULL')
+      .andWhere('d.posterUrl IS NOT NULL');
+
+    if (genre) {
+      qb = qb.innerJoin('d.genres', 'gf', 'gf.slug = :gs', { gs: genre });
+    }
+
+    switch (railId) {
+      case 'hero':
+        qb = qb.orderBy('d.totalLikes', 'DESC').addOrderBy('d.totalEpisodes', 'DESC');
+        break;
+
+      case 'latest-releases': {
+        const subQuery = this.episodeRepo
+          .createQueryBuilder('e')
+          .select('e.drama_id', 'drama_id')
+          .addSelect('MAX(COALESCE(e.air_date, e.created_at))', 'last_ep')
+          .groupBy('e.drama_id')
+          .getQuery();
+
+        qb = qb
+          .innerJoin(`(${subQuery})`, 'le', 'le.drama_id = d.id')
+          .orderBy('le.last_ep', 'DESC');
+        break;
+      }
+
+      case 'new-dramas':
+        qb = qb.orderBy('d.publishedAt', 'DESC').addOrderBy('d.createdAt', 'DESC');
+        break;
+
+      case 'monthly-popular':
+        qb = qb.orderBy('d.monthlyViews', 'DESC').addOrderBy('d.totalLikes', 'DESC');
+        break;
+
+      case 'completed':
+        qb = qb
+          .andWhere('d.status = :status', { status: DramaStatusEnum.COMPLETED })
+          .orderBy('d.updatedAt', 'DESC');
+        break;
+
+      default: {
+        // DB-configured rail: look up by ID and use genre if present
+        const rail = await this.railRepo.findOne({ where: { id: railId }, relations: { genre: true } });
+        if (rail?.genreId) {
+          qb = qb.innerJoin('d.genres', 'rg', 'rg.id = :rgid', { rgid: rail.genreId });
+        }
+        qb = qb.orderBy('d.totalEpisodes', 'DESC').addOrderBy('d.publishedAt', 'DESC');
+        break;
+      }
+    }
+
+    const offset = (page - 1) * limit;
+    qb = qb.skip(offset).take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
+    const result: Paginated<Drama> = { data, meta: { page, limit, total } };
+
+    this.setCache(cacheKey, result);
+    return result;
+  }
 
   async list(dto: ListDramasDto): Promise<Paginated<Drama>> {
     const page = dto.page ?? 1;

@@ -7,12 +7,14 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/ads/ad_service.dart';
 import '../../core/config/app_config_store.dart';
 import '../../core/config/env.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/gradients.dart';
 import '../../core/theme/spacing.dart';
+import '../../di/injection.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../shared/models/app_config_model.dart';
 
@@ -75,7 +77,8 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
 
-      // 3) All clear.
+      // 3) Show app open ad, then navigate.
+      getIt<AdService>().showAppOpenAd();
       context.go(AppRoutes.home);
     } catch (_) {
       await minSplash;

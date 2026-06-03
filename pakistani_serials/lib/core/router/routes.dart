@@ -15,6 +15,9 @@ class AppRoutes {
   static const sources = '/sources';
   static const player = '/player';
   static const settings = '/settings';
+  static const seeAll = '/see-all/:railId';
 
   static String detailPath(String slug) => '/content/$slug';
+  static String seeAllPath(String railId, String title) =>
+      '/see-all/$railId?title=${Uri.encodeComponent(title)}';
 }

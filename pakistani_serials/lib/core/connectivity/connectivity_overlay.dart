@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../di/injection.dart';
 import '../theme/colors.dart';
 import 'connectivity_service.dart';
 
@@ -32,7 +33,7 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
 
-    final svc = ConnectivityService.instance;
+    final svc = getIt<ConnectivityService>();
 
     if (!svc.isOnline) {
       _showBanner = true;
@@ -51,7 +52,7 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay>
         // Show "Back online" briefly then hide
         setState(() => _wasOffline = false);
         Future.delayed(const Duration(seconds: 2), () {
-          if (mounted && ConnectivityService.instance.isOnline) {
+          if (mounted && getIt<ConnectivityService>().isOnline) {
             _animCtrl.reverse().then((_) {
               if (mounted) setState(() => _showBanner = false);
             });

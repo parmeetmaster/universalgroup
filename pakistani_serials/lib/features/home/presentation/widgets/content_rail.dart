@@ -17,12 +17,14 @@ class ContentRail extends StatelessWidget {
     super.key,
     required this.title,
     required this.items,
+    this.railId,
     this.isTop10 = false,
     this.variant = RailVariant.poster,
     this.showNewBadge = false,
   });
   final String title;
   final List<ContentModel> items;
+  final String? railId;
   final bool isTop10;
   final RailVariant variant;
   final bool showNewBadge;
@@ -89,7 +91,13 @@ class ContentRail extends StatelessWidget {
               ),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => context.go(AppRoutes.browse),
+                onTap: () {
+                  if (railId != null) {
+                    context.push(AppRoutes.seeAllPath(railId!, title));
+                  } else {
+                    context.go(AppRoutes.browse);
+                  }
+                },
                 child: Row(
                   children: [
                     Text(

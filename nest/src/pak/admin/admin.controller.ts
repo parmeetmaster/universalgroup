@@ -1,20 +1,24 @@
 import {
   Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards,
 } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PakAdminService } from './admin.service';
 import { CreateDramaDto } from './dto/create-drama.dto';
 import { UpdateDramaDto } from './dto/update-drama.dto';
 import { CreateSeasonDto } from './dto/create-season.dto';
 import { CreateEpisodeDto } from './dto/create-episode.dto';
 import { PakAdminTokenGuard } from '../common/admin-token.guard';
+import { PosterHealthService } from '../services/poster-health.service';
 
 @ApiTags('pak-admin')
 @ApiHeader({ name: 'X-Admin-Token', required: true })
 @UseGuards(PakAdminTokenGuard)
 @Controller('pakistani-serials/admin')
 export class PakAdminController {
-  constructor(private readonly svc: PakAdminService) {}
+  constructor(
+    private readonly svc: PakAdminService,
+    private readonly posterHealth: PosterHealthService,
+  ) {}
 
   @Get('dramas')
   @ApiOperation({ summary: 'List every drama (no pagination -- dashboard use)' })
@@ -68,5 +72,12 @@ export class PakAdminController {
   @ApiOperation({ summary: 'Delete an episode (cascades videos)' })
   deleteEpisode(@Param('id') id: string) {
     return this.svc.deleteEpisode(id);
+  }
+
+  @Post('poster-health')
+  @ApiOperation({ summary: 'Check all poster URLs and fix broken ones' })
+  @ApiResponse({ status: 200, description: 'Returns check/fix summary' })
+  runPosterHealth() {
+    return this.posterHealth.checkAndFix();
   }
 }

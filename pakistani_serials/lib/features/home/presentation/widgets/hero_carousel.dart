@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/routes.dart';
@@ -163,6 +164,19 @@ class _HeroSlide extends StatelessWidget {
   }
 }
 
+void _openCastSettings(BuildContext context) {
+  const channel = MethodChannel('com.pakistanidrama.serial/cast');
+  final messenger = ScaffoldMessenger.of(context);
+  channel.invokeMethod<void>('openCastDialog').catchError((_) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(
+        content: Text('Cast not available on this device'),
+        behavior: SnackBarBehavior.floating,
+      ));
+  });
+}
+
 class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -184,18 +198,12 @@ class _TopBar extends StatelessWidget {
           const Spacer(),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(const SnackBar(
-                content: Text('Cast coming soon'),
-                duration: Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-              )),
+            onTap: () => _openCastSettings(context),
             child: const Icon(Icons.cast_rounded, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 18),
           GestureDetector(
-            onTap: () => context.go('/search'),
+            onTap: () => context.push('/search'),
             child: const Icon(Icons.search_rounded, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 14),

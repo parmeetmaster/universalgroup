@@ -8,6 +8,7 @@ import { EpisodeVideo } from '../../entities/episode-video.entity';
 import { ParseSource } from '../../entities/parse-source.entity';
 import { ParseRun } from '../../entities/parse-run.entity';
 import { DramaStatusEnum, ParseRunStatusEnum, VideoFormatEnum, VideoQualityEnum } from '../../entities/enums';
+import { PosterHealthService } from '../../services/poster-health.service';
 
 export interface DiscoverySummary {
   found: number;
@@ -50,6 +51,7 @@ export class PakDramaximaDriver {
     @InjectRepository(EpisodeVideo, 'pak') private readonly videoRepo: Repository<EpisodeVideo>,
     @InjectRepository(ParseSource, 'pak') private readonly sourceRepo: Repository<ParseSource>,
     @InjectRepository(ParseRun, 'pak') private readonly runRepo: Repository<ParseRun>,
+    private readonly posterHealth: PosterHealthService,
   ) {}
 
   async discoverNewDramas(): Promise<DiscoverySummary> {
@@ -109,6 +111,27 @@ export class PakDramaximaDriver {
             language: 'ur',
           }),
         );
+
+        // Verify poster is accessible; if broken, find a replacement
+        try {
+          const needsFix = posterUrl
+            ? !(await this.posterHealth.isUrlAccessible(posterUrl))
+            : true;
+          if (needsFix) {
+            const replacement = await this.posterHealth.findReplacementPoster(title);
+            if (replacement) {
+              await this.dramaRepo.update(drama.id, {
+                posterUrl: replacement,
+                posterOriginalUrl: replacement,
+                backdropUrl: replacement,
+                backdropOriginalUrl: replacement,
+              });
+              this.logger.log(`Replaced broken poster for ${title} → ${replacement.substring(0, 80)}`);
+            }
+          }
+        } catch (posterErr) {
+          this.logger.warn(`Poster check for ${slug} failed: ${(posterErr as Error).message}`);
+        }
 
         try {
           await this.importDrama(drama);
@@ -235,6 +258,9 @@ export class PakDramaximaDriver {
       for (const link of links) {
         try {
           let ep = byNum.get(link.number);
+          const airDate = link.lastmod
+            ? link.lastmod.toISOString().slice(0, 10)
+            : null;
           if (!ep) {
             ep = await this.episodeRepo.save(
               this.episodeRepo.create({
@@ -243,13 +269,22 @@ export class PakDramaximaDriver {
                 number: link.number,
                 title: `Episode ${link.number}`,
                 sourceUrl: link.url,
+                airDate: airDate,
                 isPublished: 1,
               }),
             );
             byNum.set(link.number, ep);
-          } else if (ep.sourceUrl !== link.url) {
-            ep.sourceUrl = link.url;
-            await this.episodeRepo.save(ep);
+          } else {
+            let changed = false;
+            if (ep.sourceUrl !== link.url) {
+              ep.sourceUrl = link.url;
+              changed = true;
+            }
+            if (!ep.airDate && airDate) {
+              ep.airDate = airDate;
+              changed = true;
+            }
+            if (changed) await this.episodeRepo.save(ep);
           }
           summary.imported++;
         } catch (err) {
@@ -367,20 +402,23 @@ export class PakDramaximaDriver {
   private async collectEpisodeLinks(
     dramaSlug: string,
     landingUrl: string,
-  ): Promise<Array<{ number: number; url: string }>> {
+  ): Promise<Array<{ number: number; url: string; lastmod: Date | null }>> {
     const sitemap = await this.loadSitemap();
     const urls = sitemap.map((e) => e.url);
     const prefix = await this.deriveEpisodePrefix(dramaSlug, landingUrl, urls);
     if (!prefix) return [];
 
     const matcher = new RegExp(`/${this.escapeRe(prefix)}-episode-(\\d+)/?$`);
-    const found = new Map<number, string>();
-    for (const url of urls) {
-      const m = url.match(matcher);
+    const found = new Map<number, { url: string; lastmod: Date | null }>();
+    for (const entry of sitemap) {
+      const m = entry.url.match(matcher);
       if (!m) continue;
       const n = parseInt(m[1], 10);
       if (!found.has(n)) {
-        found.set(n, url.endsWith('/') ? url : `${url}/`);
+        found.set(n, {
+          url: entry.url.endsWith('/') ? entry.url : `${entry.url}/`,
+          lastmod: entry.lastmod,
+        });
       }
     }
 
@@ -397,7 +435,7 @@ export class PakDramaximaDriver {
         while ((lm = linkRx.exec(main)) !== null) {
           const n = parseInt(lm[1], 10);
           if (!found.has(n)) {
-            found.set(n, `https://dramaxima.com/${prefix}-episode-${n}/`);
+            found.set(n, { url: `https://dramaxima.com/${prefix}-episode-${n}/`, lastmod: null });
           }
         }
         if (page === 1 && found.size > 0) break;
@@ -421,7 +459,7 @@ export class PakDramaximaDriver {
             headers: { 'User-Agent': UA },
             signal: AbortSignal.timeout(10000),
           });
-          if (res.status === 200) found.set(n, url);
+          if (res.status === 200) found.set(n, { url, lastmod: null });
         } catch {
           // network errors ignored
         }
@@ -430,7 +468,7 @@ export class PakDramaximaDriver {
 
     return [...found.entries()]
       .sort((a, b) => a[0] - b[0])
-      .map(([number, url]) => ({ number, url }));
+      .map(([number, entry]) => ({ number, url: entry.url, lastmod: entry.lastmod }));
   }
 
   private async loadSitemap(): Promise<SitemapEntry[]> {

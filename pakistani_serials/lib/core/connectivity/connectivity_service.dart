@@ -1,9 +1,11 @@
 import 'dart:async';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:injectable/injectable.dart';
+
+@singleton
 class ConnectivityService {
-  ConnectivityService._();
-  static final instance = ConnectivityService._();
+  ConnectivityService();
 
   final _connectivity = Connectivity();
   final _controller = StreamController<bool>.broadcast();
@@ -25,5 +27,6 @@ class ConnectivityService {
     });
   }
 
+  @disposeMethod
   void dispose() => _controller.close();
 }

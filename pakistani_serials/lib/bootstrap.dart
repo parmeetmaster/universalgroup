@@ -8,13 +8,18 @@ import 'package:flutter/services.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'core/ads/ad_service.dart';
 import 'core/connectivity/connectivity_service.dart';
 import 'di/injection.dart';
+
 
 Future<void> bootstrap(Widget Function() builder) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp();
+
+  // Enable Crashlytics collection (including debug builds)
+  await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
 
   // Crashlytics: catch Flutter framework errors
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
@@ -43,7 +48,10 @@ Future<void> bootstrap(Widget Function() builder) async {
   );
 
   await configureDependencies();
-  await ConnectivityService.instance.init();
+  await getIt<ConnectivityService>().init();
+
+  // Init AdMob SDK + preload interstitials (non-blocking)
+  getIt<AdService>().init();
 
   Bloc.observer = _AppBlocObserver();
 

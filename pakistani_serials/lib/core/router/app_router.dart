@@ -9,6 +9,7 @@ import '../../features/player/presentation/screens/player_screen.dart';
 import '../../features/player/presentation/screens/sources_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
+import '../../features/see_all/see_all_screen.dart';
 import '../../features/shared/models/content_model.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/watchlist/watchlist_screen.dart';
@@ -86,6 +87,18 @@ class AppRouter {
             key: st.pageKey,
             child: PlayerScreen(request: req),
             transitionsBuilder: _fadeTransition,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.seeAll,
+        pageBuilder: (ctx, st) {
+          final railId = st.pathParameters['railId']!;
+          final title = st.uri.queryParameters['title'] ?? '';
+          return CustomTransitionPage(
+            key: st.pageKey,
+            child: SeeAllScreen(railId: railId, title: title),
+            transitionsBuilder: _slideFadeTransition,
           );
         },
       ),

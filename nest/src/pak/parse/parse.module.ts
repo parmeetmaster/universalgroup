@@ -13,6 +13,7 @@ import { PakParseSchedulerService } from './scheduler/parse-scheduler.service';
 import { PakParseOrchestratorService } from './scheduler/parse-orchestrator.service';
 import { PakDistributedLockService } from './scheduler/distributed-lock.service';
 import { PakAdminTokenGuard } from '../common/admin-token.guard';
+import { PakImageModule } from '../services/pak-image.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { PakAdminTokenGuard } from '../common/admin-token.guard';
       Drama,
       Season,
     ], 'pak'),
+    PakImageModule,
   ],
   controllers: [PakParseController],
   providers: [

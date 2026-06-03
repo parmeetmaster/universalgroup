@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/ads/ad_service.dart';
+import '../../../../core/notifications/notification_service.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/spacing.dart';
@@ -27,8 +29,19 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _HomeView extends StatelessWidget {
+class _HomeView extends StatefulWidget {
   const _HomeView();
+
+  @override
+  State<_HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<_HomeView> {
+  @override
+  void initState() {
+    super.initState();
+    getIt<NotificationService>().init();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,13 +107,16 @@ class _LoadedContent extends StatelessWidget {
           SliverToBoxAdapter(
             child: ContentRail(
               title: recentRelease.title,
+              railId: recentRelease.id,
               items: recentRelease.items,
               variant: RailVariant.landscape,
               showNewBadge: true,
             ),
           ),
         ],
-        const SliverToBoxAdapter(child: SizedBox(height: 18)),
+        const SliverToBoxAdapter(child: SizedBox(height: 10)),
+        const SliverToBoxAdapter(child: AdService.homeNativeAd),
+        const SliverToBoxAdapter(child: SizedBox(height: 10)),
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (ctx, i) {
@@ -123,6 +139,7 @@ class _LoadedContent extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 6, bottom: 26),
                       child: ContentRail(
                         title: isTop10 ? s.homeTop10Today : rail.title,
+                        railId: rail.id,
                         items: rail.items,
                         isTop10: isTop10,
                         variant: variant,
@@ -136,6 +153,8 @@ class _LoadedContent extends StatelessWidget {
             childCount: otherRails.length,
           ),
         ),
+        const SliverToBoxAdapter(child: AdService.homeNativeAd),
+        const SliverToBoxAdapter(child: SizedBox(height: 10)),
         const SliverToBoxAdapter(child: _FooterBrand()),
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../../../../core/theme/colors.dart';
 import 'sources_screen.dart';
 
 class PlayerScreen extends StatefulWidget {
@@ -40,7 +41,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: _isDirectVideo(url)
-          ? _NativePlayer(url: url)
+          ? _NativePlayer(request: widget.request)
           : _EmbedPlayer(url: url),
     );
   }
@@ -51,51 +52,383 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// NATIVE PLAYER — ExoPlayer style with custom controls overlay
+// ═══════════════════════════════════════════════════════════════
+
 class _NativePlayer extends StatefulWidget {
-  const _NativePlayer({required this.url});
-  final String url;
+  const _NativePlayer({required this.request});
+  final PlaybackRequest request;
 
   @override
   State<_NativePlayer> createState() => _NativePlayerState();
 }
 
 class _NativePlayerState extends State<_NativePlayer> {
-  late final BetterPlayerController _controller;
+  late final BetterPlayerController _ctrl;
+  bool _showControls = true;
+  bool _isPlaying = false;
+  bool _isBuffering = true;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
+  bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
-    final isHls = widget.url.contains('.m3u8');
-    _controller = BetterPlayerController(
+    final isHls = widget.request.url.contains('.m3u8');
+    _ctrl = BetterPlayerController(
       const BetterPlayerConfiguration(
         autoPlay: true,
         fit: BoxFit.contain,
         allowedScreenSleep: false,
         controlsConfiguration: BetterPlayerControlsConfiguration(
-          enableFullscreen: false,
+          showControls: false,
         ),
       ),
       betterPlayerDataSource: BetterPlayerDataSource(
         BetterPlayerDataSourceType.network,
-        widget.url,
+        widget.request.url,
         videoFormat: isHls
             ? BetterPlayerVideoFormat.hls
             : BetterPlayerVideoFormat.other,
       ),
     );
+    _ctrl.addEventsListener(_onPlayerEvent);
+    _autoHideControls();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _disposed = true;
+    _ctrl.removeEventsListener(_onPlayerEvent);
+    _ctrl.dispose();
     super.dispose();
+  }
+
+  void _onPlayerEvent(BetterPlayerEvent event) {
+    if (_disposed) return;
+    switch (event.betterPlayerEventType) {
+      case BetterPlayerEventType.play:
+        setState(() {
+          _isPlaying = true;
+          _isBuffering = false;
+        });
+      case BetterPlayerEventType.pause:
+        setState(() => _isPlaying = false);
+      case BetterPlayerEventType.bufferingStart:
+        setState(() => _isBuffering = true);
+      case BetterPlayerEventType.bufferingEnd:
+        setState(() => _isBuffering = false);
+      case BetterPlayerEventType.progress:
+        final pos = event.parameters?['progress'] as Duration?;
+        final dur = event.parameters?['duration'] as Duration?;
+        if (pos != null) _position = pos;
+        if (dur != null && dur.inSeconds > 0) _duration = dur;
+        if (mounted) setState(() {});
+      case BetterPlayerEventType.finished:
+        setState(() => _isPlaying = false);
+      default:
+        break;
+    }
+  }
+
+  void _togglePlayPause() {
+    if (_isPlaying) {
+      _ctrl.pause();
+    } else {
+      _ctrl.play();
+    }
+    _showControlsBriefly();
+  }
+
+  void _seekRelative(int seconds) {
+    final target = _position + Duration(seconds: seconds);
+    final clamped = target < Duration.zero
+        ? Duration.zero
+        : target > _duration
+            ? _duration
+            : target;
+    _ctrl.seekTo(clamped);
+    _showControlsBriefly();
+  }
+
+  void _showControlsBriefly() {
+    setState(() => _showControls = true);
+    _autoHideControls();
+  }
+
+  void _autoHideControls() {
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted && !_disposed && _isPlaying) {
+        setState(() => _showControls = false);
+      }
+    });
+  }
+
+  void _onTapVideo() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) _autoHideControls();
+  }
+
+  String _fmtTime(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    final s = d.inSeconds.remainder(60);
+    if (h > 0) return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(child: BetterPlayer(controller: _controller));
+    final ep = widget.request.episode;
+    final title = ep.title ?? 'Episode ${ep.episodeNumber}';
+
+    return GestureDetector(
+      onTap: _onTapVideo,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Video
+          Center(child: BetterPlayer(controller: _ctrl)),
+
+          // Buffering indicator
+          if (_isBuffering)
+            const Center(
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: CircularProgressIndicator(
+                  color: AppColors.accent,
+                  strokeWidth: 3,
+                ),
+              ),
+            ),
+
+          // Controls overlay
+          AnimatedOpacity(
+            opacity: _showControls ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 250),
+            child: IgnorePointer(
+              ignoring: !_showControls,
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.45),
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      // Top bar — title + close
+                      _TopBar(title: title, onClose: () => Navigator.of(context).pop()),
+                      // Center controls
+                      Expanded(
+                        child: _CenterControls(
+                          isPlaying: _isPlaying,
+                          onPlayPause: _togglePlayPause,
+                          onRewind: () => _seekRelative(-10),
+                          onForward: () => _seekRelative(10),
+                        ),
+                      ),
+                      // Bottom bar — progress + time
+                      _BottomBar(
+                        position: _position,
+                        duration: _duration,
+                        fmtTime: _fmtTime,
+                        onSeek: (value) {
+                          final target = Duration(
+                            milliseconds: (value * _duration.inMilliseconds).round(),
+                          );
+                          _ctrl.seekTo(target);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.title, required this.onClose});
+  final String title;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: onClose,
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CenterControls extends StatelessWidget {
+  const _CenterControls({
+    required this.isPlaying,
+    required this.onPlayPause,
+    required this.onRewind,
+    required this.onForward,
+  });
+  final bool isPlaying;
+  final VoidCallback onPlayPause;
+  final VoidCallback onRewind;
+  final VoidCallback onForward;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Rewind 10s
+        _ControlButton(
+          icon: Icons.replay_10_rounded,
+          size: 36,
+          onTap: onRewind,
+        ),
+        const SizedBox(width: 40),
+        // Play / Pause
+        GestureDetector(
+          onTap: onPlayPause,
+          child: Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 42,
+            ),
+          ),
+        ),
+        const SizedBox(width: 40),
+        // Forward 10s
+        _ControlButton(
+          icon: Icons.forward_10_rounded,
+          size: 36,
+          onTap: onForward,
+        ),
+      ],
+    );
+  }
+}
+
+class _ControlButton extends StatelessWidget {
+  const _ControlButton({required this.icon, required this.size, required this.onTap});
+  final IconData icon;
+  final double size;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Icon(icon, color: Colors.white, size: size),
+      ),
+    );
+  }
+}
+
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({
+    required this.position,
+    required this.duration,
+    required this.fmtTime,
+    required this.onSeek,
+  });
+  final Duration position;
+  final Duration duration;
+  final String Function(Duration) fmtTime;
+  final ValueChanged<double> onSeek;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = duration.inMilliseconds > 0
+        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+              activeTrackColor: AppColors.accent,
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.25),
+              thumbColor: AppColors.accent,
+              overlayColor: AppColors.accent.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: progress,
+              onChanged: onSeek,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  fmtTime(position),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  fmtTime(duration),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EMBED PLAYER — WebView for YouTube, Dailymotion, other embeds
+// ═══════════════════════════════════════════════════════════════
 
 class _EmbedPlayer extends StatefulWidget {
   const _EmbedPlayer({required this.url});
@@ -111,16 +444,10 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
   bool _disposed = false;
   bool _showHint = true;
 
-  /// Desktop-flavoured UA. Some Invidious mirrors throw an anti-bot
-  /// challenge at the Chrome-on-Android UA we used earlier; the generic
-  /// Linux Chrome string sails through while not hurting dramaspice,
-  /// Dailymotion, or the YouTube IFrame API path.
   static const String _ua =
       'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-  /// Host-appropriate Referer for direct-URL loads (dramaspice wants
-  /// dramaxima's referer so its anti-hotlink check passes).
   String get _referer {
     final host = Uri.tryParse(widget.url)?.host ?? '';
     if (host.contains('dailymotion.com')) return 'https://www.dailymotion.com/';
@@ -130,13 +457,6 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
     return 'https://dramaxima.com/';
   }
 
-  /// YouTube blocks playback when its `/embed/<id>` URL is loaded as the
-  /// WebView's top document ("Video unavailable — Playback on other
-  /// websites has been disabled by the video owner"). The workaround —
-  /// lifted from the animeworld client — is to serve an inline HTML page
-  /// containing the YT IFrame Player API, with a `baseUrl` that makes the
-  /// page look like it's coming from youtube-nocookie.com. The player
-  /// then treats it as a normal same-origin iframe host.
   String? get _youtubeVideoId {
     final u = Uri.tryParse(widget.url);
     if (u == null) return null;
@@ -153,10 +473,6 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
     return null;
   }
 
-  /// Dailymotion behaves similarly enough that the same wrapper pattern
-  /// gives us one consistent init path + avoids intermittent redirect
-  /// failures in Android WebView when loading `geo.dailymotion.com`
-  /// directly as the top document.
   String? get _dailymotionVideoId {
     final u = Uri.tryParse(widget.url);
     if (u == null) return null;
@@ -248,12 +564,6 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
         userAgent: _ua,
       );
 
-  /// Decide which init path to use:
-  ///   • YouTube  → inline HTML + IFrame API, baseUrl = youtube-nocookie.com
-  ///   • Dailymotion → inline HTML containing the geo-player iframe,
-  ///                   baseUrl = dailymotion.com
-  ///   • Everything else (dramaspice embeds) → direct URL load with
-  ///                                            host-aware Referer
   Widget _buildWebView() {
     final yt = _youtubeVideoId;
     if (yt != null) {
@@ -358,7 +668,7 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Text(
-                      'TAP ▶ 2-3 TIMES IF VIDEO DOES NOT PLAY',
+                      'TAP \u25B6 2-3 TIMES IF VIDEO DOES NOT PLAY',
                       style: TextStyle(
                         color: Colors.red,
                         fontSize: 11,

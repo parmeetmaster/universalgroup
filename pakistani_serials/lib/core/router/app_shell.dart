@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../l10n/generated/app_localizations.dart';
@@ -29,10 +30,28 @@ class AppShell extends StatelessWidget {
     return 0;
   }
 
+  void _onBackPressed(BuildContext context) {
+    final location = GoRouterState.of(context).uri.toString();
+    final isHome = location.startsWith(AppRoutes.home);
+
+    if (!isHome) {
+      // Not on home tab → go to home first
+      context.go(AppRoutes.home);
+    } else {
+      // Already on home → move app to background
+      SystemNavigator.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tabs = _tabs(context);
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _onBackPressed(context);
+      },
+      child: Scaffold(
       backgroundColor: AppColors.bg,
       extendBody: true,
       body: SafeArea(
@@ -66,6 +85,7 @@ class AppShell extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

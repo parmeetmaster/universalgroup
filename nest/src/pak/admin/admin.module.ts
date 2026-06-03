@@ -7,9 +7,13 @@ import { Genre } from '../entities/genre.entity';
 import { PakAdminController } from './admin.controller';
 import { PakAdminService } from './admin.service';
 import { PakAdminTokenGuard } from '../common/admin-token.guard';
+import { PakImageModule } from '../services/pak-image.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Drama, Season, Episode, Genre], 'pak')],
+  imports: [
+    TypeOrmModule.forFeature([Drama, Season, Episode, Genre], 'pak'),
+    PakImageModule,
+  ],
   controllers: [PakAdminController],
   providers: [PakAdminService, PakAdminTokenGuard],
 })
