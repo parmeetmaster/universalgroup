@@ -71,11 +71,11 @@ class _BrowseScreenState extends State<BrowseScreen> {
               builder: (ctx, snap) {
                 final items = snap.data ?? const <GenreModel>[];
                 return SizedBox(
-                  height: 46,
+                  height: 52,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.lg, 10, AppSpacing.lg, 6),
+                        AppSpacing.lg, 8, AppSpacing.lg, 8),
                     itemCount: items.length + 1,
                     separatorBuilder: (_, __) => const SizedBox(width: 8),
                     itemBuilder: (ctx, i) {
