@@ -16,8 +16,8 @@ $year = date('Y');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- Primary SEO -->
-    <title>Pakistani Drama - Watch Pakistani Dramas & Serials Free in HD | Download App</title>
-    <meta name="description" content="Watch Pakistani drama online free in HD. 1000+ Pakistani dramas from ARY Digital, Geo TV, Hum TV. Stream latest Pakistani serials, episodes & shows. Download the best Pakistani drama app now.">
+    <title>Pakistani Drama App - Watch Pakistani Drama & Serials Free in HD</title>
+    <meta name="description" content="Download the best Pakistani drama app to watch Pakistani drama online free in HD. 1000+ Pakistani dramas from ARY Digital, Geo TV, Hum TV. Stream latest Pakistani drama serials & episodes free.">
     <meta name="keywords" content="pakistani drama, pakistani dramas, pakistani drama app, watch pakistani drama, pakistani serials, pakistani drama online, ary digital drama, geo tv drama, hum tv drama, latest pakistani drama, new pakistani drama, pakistani drama 2026, best pakistani dramas, pakistani drama download, watch pakistani serials free">
     <meta name="author" content="Pakistani Drama & Serials">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -27,7 +27,7 @@ $year = date('Y');
     <!-- Open Graph / Facebook / WhatsApp -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= $domain ?>/">
-    <meta property="og:title" content="Pakistani Drama - Watch Free Pakistani Dramas & Serials in HD">
+    <meta property="og:title" content="Pakistani Drama App - Watch Pakistani Drama & Serials Free in HD">
     <meta property="og:description" content="Watch Pakistani drama online free. 1000+ dramas from ARY Digital, Geo TV, Hum TV. Stream latest Pakistani serials in HD.">
     <meta property="og:image" content="<?= $domain ?>/og-image.png">
     <meta property="og:image:width" content="1200">
@@ -39,7 +39,7 @@ $year = date('Y');
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="<?= $domain ?>/">
-    <meta name="twitter:title" content="Pakistani Drama - Watch Free Pakistani Dramas & Serials in HD">
+    <meta name="twitter:title" content="Pakistani Drama App - Watch Pakistani Drama & Serials Free in HD">
     <meta name="twitter:description" content="Watch Pakistani drama online free. 1000+ dramas from ARY Digital, Geo TV, Hum TV in one app.">
     <meta name="twitter:image" content="<?= $domain ?>/og-image.png">
 
@@ -917,8 +917,8 @@ $year = date('Y');
                 <span class="badge-dot"></span>
                 Now Streaming
             </div>
-            <h1 id="hero-heading"><span class="gold">Pakistani Drama</span> — Watch All Dramas & Serials Free in HD</h1>
-            <p class="hero-desc">The best app to watch Pakistani drama online. Stream 1000+ Pakistani dramas and serials from ARY Digital, Geo TV, Hum TV in HD quality. New episodes added daily — completely free.</p>
+            <h1 id="hero-heading"><span class="gold">Pakistani Drama App</span> — Watch Pakistani Drama & Serials Free in HD</h1>
+            <p class="hero-desc">The #1 Pakistani drama app to watch Pakistani drama online free. Stream 1000+ Pakistani dramas and serials from ARY Digital, Geo TV, Hum TV in HD. New episodes daily — download the best Pakistani drama app now.</p>
             <div class="hero-actions">
                 <a href="<?= $playStoreUrl ?>" class="btn-primary" target="_blank" rel="noopener noreferrer" aria-label="Download Pakistani Drama App free on Google Play Store">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 0 1-.61-.92V2.734a1 1 0 0 1 .609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.302 2.302a1 1 0 0 1 0 1.38l-2.302 2.302L15.396 12l2.302-2.492zM5.864 2.658L16.8 8.99l-2.302 2.302-8.634-8.634z"/></svg>
@@ -1233,8 +1233,11 @@ $year = date('Y');
         <h3>Top Pakistani Drama Channels</h3>
         <p>The biggest Pakistani drama channels include <strong>ARY Digital</strong>, <strong>Geo TV</strong>, <strong>Hum TV</strong>, Express Entertainment, TV One, and A-Plus. Each channel produces multiple Pakistani drama serials that air weekly, and our app brings all of them together in one place so you never have to switch between different platforms to watch your favorite Pakistani drama.</p>
 
-        <h3>Watch Pakistani Drama on Your Phone</h3>
-        <p>Our app is the easiest way to watch Pakistani drama on your mobile phone. Whether you want to catch up on the latest episode of a new Pakistani drama or binge-watch a classic Pakistani serial from start to finish, the app gives you instant access to 1000+ Pakistani dramas in HD quality — completely free. With daily updates, push notifications, and a favorites watchlist, you will never miss a moment of your favorite Pakistani drama again.</p>
+        <h3>The Best Pakistani Drama App for Android</h3>
+        <p>Looking for the best <strong>Pakistani drama app</strong>? Our Pakistani drama app is the easiest way to watch Pakistani drama on your mobile phone. Whether you want to catch up on the latest episode of a new Pakistani drama or binge-watch a classic Pakistani serial from start to finish, this Pakistani drama app gives you instant access to 1000+ Pakistani dramas in HD quality — completely free.</p>
+
+        <h3>Why Download Our Pakistani Drama App?</h3>
+        <p>This Pakistani drama app stands out because it brings every major Pakistani drama channel into one place. No more switching between websites or apps — just open the Pakistani drama app, browse, and watch. With daily updates, push notifications, a favorites watchlist, and HD streaming, our Pakistani drama app is the only app you need to enjoy Pakistani drama online. Download the Pakistani drama app today from Google Play Store and start watching!</p>
     </div>
 </section>
 
