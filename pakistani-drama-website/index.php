@@ -16,9 +16,9 @@ $year = date('Y');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- Primary SEO -->
-    <title>Pakistani Drama App - Watch Free Pakistani Serials & Dramas in HD</title>
-    <meta name="description" content="Watch 1000+ Pakistani dramas and serials free in HD. Stream ARY Digital, Geo TV, Hum TV shows. Download the #1 Pakistani drama app for Android now.">
-    <meta name="keywords" content="pakistani drama app, pakistani serials app, watch pakistani dramas free, ary digital dramas, geo tv dramas, hum tv dramas, download pakistani drama app, pakistani drama app download">
+    <title>Pakistani Drama - Watch Pakistani Dramas & Serials Free in HD | Download App</title>
+    <meta name="description" content="Watch Pakistani drama online free in HD. 1000+ Pakistani dramas from ARY Digital, Geo TV, Hum TV. Stream latest Pakistani serials, episodes & shows. Download the best Pakistani drama app now.">
+    <meta name="keywords" content="pakistani drama, pakistani dramas, pakistani drama app, watch pakistani drama, pakistani serials, pakistani drama online, ary digital drama, geo tv drama, hum tv drama, latest pakistani drama, new pakistani drama, pakistani drama 2026, best pakistani dramas, pakistani drama download, watch pakistani serials free">
     <meta name="author" content="Pakistani Drama & Serials">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="googlebot" content="index, follow">
@@ -27,8 +27,8 @@ $year = date('Y');
     <!-- Open Graph / Facebook / WhatsApp -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= $domain ?>/">
-    <meta property="og:title" content="Pakistani Drama App - Watch Free Dramas & Serials in HD">
-    <meta property="og:description" content="Watch 1000+ Pakistani dramas free in HD. Stream ARY Digital, Geo TV, Hum TV shows. Download the #1 drama app for Android.">
+    <meta property="og:title" content="Pakistani Drama - Watch Free Pakistani Dramas & Serials in HD">
+    <meta property="og:description" content="Watch Pakistani drama online free. 1000+ dramas from ARY Digital, Geo TV, Hum TV. Stream latest Pakistani serials in HD.">
     <meta property="og:image" content="<?= $domain ?>/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -39,8 +39,8 @@ $year = date('Y');
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="<?= $domain ?>/">
-    <meta name="twitter:title" content="Pakistani Drama App - Watch Free Dramas & Serials in HD">
-    <meta name="twitter:description" content="Stream 1000+ Pakistani dramas free. ARY Digital, Geo TV, Hum TV — all in one app.">
+    <meta name="twitter:title" content="Pakistani Drama - Watch Free Pakistani Dramas & Serials in HD">
+    <meta name="twitter:description" content="Watch Pakistani drama online free. 1000+ dramas from ARY Digital, Geo TV, Hum TV in one app.">
     <meta name="twitter:image" content="<?= $domain ?>/og-image.png">
 
     <!-- App Linking -->
@@ -75,8 +75,8 @@ $year = date('Y');
     {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
-        "name": "Pakistani Drama & Serials",
-        "description": "Watch 1000+ Pakistani dramas and serials from ARY Digital, Geo TV, Hum TV in HD quality. Free streaming app for Android with daily new episodes.",
+        "name": "Pakistani Drama - Watch Dramas & Serials Free",
+        "description": "Watch Pakistani drama online free in HD. Stream 1000+ Pakistani dramas and serials from ARY Digital, Geo TV, Hum TV. The best Pakistani drama app for Android with daily new episodes.",
         "url": "<?= $domain ?>/",
         "applicationCategory": "EntertainmentApplication",
         "operatingSystem": "Android 7.0+",
@@ -157,6 +157,38 @@ $year = date('Y');
                 "acceptedAnswer": {
                     "@type": "Answer",
                     "text": "Yes, you can bookmark any drama to your favorites list and build a personal watchlist. This makes it easy to resume watching from where you left off."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Where can I watch Pakistani drama online free?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "You can watch Pakistani drama online free using our app. It has 1000+ Pakistani dramas from ARY Digital, Geo TV, Hum TV. Download from Google Play Store and stream in HD — no subscription needed."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What are the best Pakistani dramas to watch?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Some of the best Pakistani dramas include Tere Bin, Khaie, Kabhi Main Kabhi Tum, Humsafar, Khaani, Mere Paas Tum Ho, Zindagi Gulzar Hai, Parizaad, Ishqiya, and many more."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Can I watch Pakistani drama outside Pakistan?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes! Our Pakistani drama app works worldwide. Whether you are in USA, UK, UAE, Canada, Saudi Arabia, or anywhere else, you can stream Pakistani dramas in HD for free."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What genres of Pakistani drama are available?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "The app covers every genre of Pakistani drama including romantic, family, thriller, social, emotional, comedy, and historical dramas."
                 }
             }
         ]
@@ -621,6 +653,19 @@ $year = date('Y');
             padding: 0 0 20px; font-size: 15px; color: var(--text-muted); line-height: 1.7;
         }
 
+        /* ── ABOUT ── */
+        .about { padding: 120px 40px; }
+        .about-content {
+            max-width: 800px; margin: 0 auto;
+            font-size: 16px; line-height: 1.8; color: var(--text-muted);
+        }
+        .about-content p { margin-bottom: 20px; }
+        .about-content p strong { color: var(--text); }
+        .about-content h3 {
+            font-size: 22px; font-weight: 700; color: var(--text);
+            margin: 36px 0 14px; letter-spacing: -0.5px;
+        }
+
         /* ── CTA ── */
         .cta { padding: 120px 40px; }
         .cta-box {
@@ -706,7 +751,7 @@ $year = date('Y');
             .nav { padding: 12px 20px; }
             .nav-links { display: none; }
             .menu-toggle { display: flex; }
-            .hero, .features, .screenshots, .howto, .popular, .reviews, .faq, .cta { padding-left: 20px; padding-right: 20px; }
+            .hero, .features, .screenshots, .howto, .popular, .reviews, .faq, .about, .cta { padding-left: 20px; padding-right: 20px; }
             .cta-box { padding: 48px 24px; }
             .cta-buttons { flex-direction: column; align-items: center; }
             .dramas-grid { grid-template-columns: 1fr 1fr; }
@@ -738,7 +783,7 @@ $year = date('Y');
             .btn-secondary { display: none; }
             .hero-actions { flex-direction: column; width: 100%; max-width: 320px; margin: 0 auto; }
 
-            .features, .screenshots, .howto, .popular, .reviews, .faq, .cta { padding-top: 80px; padding-bottom: 80px; }
+            .features, .screenshots, .howto, .popular, .reviews, .faq, .about, .cta { padding-top: 80px; padding-bottom: 80px; }
             .section-center { margin-bottom: 40px; }
             .section-title { font-size: 26px; letter-spacing: -1px; }
             .section-label { font-size: 11px; letter-spacing: 2px; margin-bottom: 12px; }
@@ -772,6 +817,9 @@ $year = date('Y');
 
             .faq-item summary { font-size: 14px; padding: 16px 0; }
             .faq-answer { font-size: 13px; padding-bottom: 16px; }
+
+            .about-content { font-size: 14px; }
+            .about-content h3 { font-size: 18px; margin: 28px 0 10px; }
 
             .cta-box { padding: 40px 20px; border-radius: 24px; }
             .cta-box .section-title { font-size: 24px; }
@@ -869,8 +917,8 @@ $year = date('Y');
                 <span class="badge-dot"></span>
                 Now Streaming
             </div>
-            <h1 id="hero-heading">Watch Free <span class="gold">Pakistani Dramas</span> & Serials in HD</h1>
-            <p class="hero-desc">Stream 1000+ Pakistani dramas from ARY Digital, Geo TV, and Hum TV. HD quality, daily new episodes, and a beautiful interface — all in one free app.</p>
+            <h1 id="hero-heading"><span class="gold">Pakistani Drama</span> — Watch All Dramas & Serials Free in HD</h1>
+            <p class="hero-desc">The best app to watch Pakistani drama online. Stream 1000+ Pakistani dramas and serials from ARY Digital, Geo TV, Hum TV in HD quality. New episodes added daily — completely free.</p>
             <div class="hero-actions">
                 <a href="<?= $playStoreUrl ?>" class="btn-primary" target="_blank" rel="noopener noreferrer" aria-label="Download Pakistani Drama App free on Google Play Store">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 0 1-.61-.92V2.734a1 1 0 0 1 .609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.302 2.302a1 1 0 0 1 0 1.38l-2.302 2.302L15.396 12l2.302-2.492zM5.864 2.658L16.8 8.99l-2.302 2.302-8.634-8.634z"/></svg>
@@ -1090,6 +1138,14 @@ $year = date('Y');
             ['Parizaad', 'Hum TV'],
             ['Rang Mahal', 'Geo TV'],
             ['Dunk', 'ARY Digital'],
+            ['Yakeen Ka Safar', 'Hum TV'],
+            ['Do Bol', 'ARY Digital'],
+            ['Ehd-e-Wafa', 'Hum TV'],
+            ['Pyar Ke Sadqay', 'Hum TV'],
+            ['Khuda Aur Mohabbat', 'Geo TV'],
+            ['Mushk', 'Hum TV'],
+            ['Sinf-e-Aahan', 'ARY Digital'],
+            ['Sang-e-Mah', 'Hum TV'],
         ];
         foreach ($dramas as $d): ?>
         <div class="drama-chip">
@@ -1141,11 +1197,15 @@ $year = date('Y');
         <?php
         $faqs = [
             ['Is the Pakistani Drama app free to download?', 'Yes, the Pakistani Drama & Serials app is completely free to download and use. Stream 1000+ Pakistani dramas from ARY Digital, Geo TV, Hum TV and more at no cost. There are no hidden charges or subscription fees.'],
-            ['Which Pakistani TV channels are available in the app?', 'The app features dramas from all major Pakistani channels including ARY Digital, Geo TV, Hum TV, Express Entertainment, TV One, A-Plus Entertainment, and many more. We cover all popular channels so you never miss a show.'],
-            ['How often are new drama episodes added?', 'New episodes are added daily, usually within hours of their original TV broadcast. You will receive push notifications when new episodes of dramas you follow are available, so you never miss an update.'],
-            ['What devices does the Pakistani Drama app support?', 'The app supports all Android devices running Android 7.0 (Nougat) and above. It is optimized for both phones and tablets, providing the best viewing experience regardless of screen size.'],
+            ['Which Pakistani TV channels are available in the app?', 'The app features Pakistani dramas from all major channels including ARY Digital, Geo TV, Hum TV, Express Entertainment, TV One, A-Plus Entertainment, and many more. We cover all popular Pakistani drama channels so you never miss a show.'],
+            ['How often are new Pakistani drama episodes added?', 'New Pakistani drama episodes are added daily, usually within hours of their original TV broadcast. You will receive push notifications when new episodes of Pakistani dramas you follow are available, so you never miss an update.'],
+            ['What devices does the Pakistani Drama app support?', 'The app supports all Android devices running Android 7.0 (Nougat) and above. It is optimized for both phones and tablets, providing the best Pakistani drama viewing experience regardless of screen size.'],
             ['Is the app safe to install?', 'Absolutely. The app is published on the official Google Play Store and verified by Google Play Protect. It contains no malware, requests only necessary permissions, and your data is kept secure.'],
-            ['Can I save my favorite dramas in the app?', 'Yes! You can bookmark any drama to your favorites list and build a personal watchlist. This makes it easy to keep track of what you are watching and resume from where you left off anytime.'],
+            ['Can I save my favorite Pakistani dramas?', 'Yes! You can bookmark any Pakistani drama to your favorites list and build a personal watchlist. This makes it easy to keep track of what you are watching and resume from where you left off anytime.'],
+            ['Where can I watch Pakistani drama online free?', 'You can watch Pakistani drama online free using our app. It has 1000+ Pakistani dramas from ARY Digital, Geo TV, Hum TV and other channels. Just download the app from Google Play Store and start streaming in HD — no subscription needed.'],
+            ['What are the best Pakistani dramas to watch?', 'Some of the best Pakistani dramas available in our app include Tere Bin, Khaie, Kabhi Main Kabhi Tum, Humsafar, Khaani, Mere Paas Tum Ho, Zindagi Gulzar Hai, Parizaad, Ishqiya, and many more. New hit Pakistani dramas are added regularly.'],
+            ['Can I watch Pakistani drama outside Pakistan?', 'Yes! Our Pakistani drama app works worldwide. Whether you are in USA, UK, UAE, Canada, Saudi Arabia, or anywhere else, you can stream Pakistani dramas in HD quality for free.'],
+            ['What genres of Pakistani drama are available?', 'The app covers every genre of Pakistani drama including romantic dramas, family dramas, thriller dramas, social dramas, emotional dramas, comedy dramas, and historical dramas. From classic Pakistani serials to the latest trending shows — everything is available.'],
         ];
         foreach ($faqs as $faq): ?>
         <details class="faq-item">
@@ -1153,6 +1213,28 @@ $year = date('Y');
             <div class="faq-answer"><?= $faq[1] ?></div>
         </details>
         <?php endforeach; ?>
+    </div>
+</section>
+
+<!-- About Pakistani Dramas - Long-form content for SEO -->
+<section class="about section-divider" id="about" aria-labelledby="about-heading">
+    <div class="section-center reveal">
+        <div class="section-label">About</div>
+        <h2 id="about-heading" class="section-title">About Pakistani Dramas</h2>
+    </div>
+    <div class="about-content reveal">
+        <p><strong>Pakistani drama</strong> is one of the most popular forms of entertainment in South Asia and across the world. Known for their compelling storylines, powerful performances, and high production quality, Pakistani dramas have gained a massive global audience. From romantic sagas to gripping thrillers, Pakistani drama serials cover every genre and emotion.</p>
+
+        <h3>Why Pakistani Dramas Are Loved Worldwide</h3>
+        <p>Pakistani dramas stand out for their unique storytelling style. Unlike many international shows that run for multiple seasons, most Pakistani drama serials tell a complete story in 20-30 episodes, keeping the narrative tight and engaging. This format has made Pakistani drama a favorite among viewers who prefer meaningful content over endless filler episodes.</p>
+
+        <p>The golden era of Pakistani drama has produced legendary shows like <strong>Humsafar</strong>, <strong>Zindagi Gulzar Hai</strong>, and <strong>Mere Paas Tum Ho</strong> that broke viewership records not only in Pakistan but also in India, Middle East, UK, USA, and Canada. Today, new Pakistani dramas like <strong>Tere Bin</strong>, <strong>Khaie</strong>, and <strong>Kabhi Main Kabhi Tum</strong> continue this tradition of excellence.</p>
+
+        <h3>Top Pakistani Drama Channels</h3>
+        <p>The biggest Pakistani drama channels include <strong>ARY Digital</strong>, <strong>Geo TV</strong>, <strong>Hum TV</strong>, Express Entertainment, TV One, and A-Plus. Each channel produces multiple Pakistani drama serials that air weekly, and our app brings all of them together in one place so you never have to switch between different platforms to watch your favorite Pakistani drama.</p>
+
+        <h3>Watch Pakistani Drama on Your Phone</h3>
+        <p>Our app is the easiest way to watch Pakistani drama on your mobile phone. Whether you want to catch up on the latest episode of a new Pakistani drama or binge-watch a classic Pakistani serial from start to finish, the app gives you instant access to 1000+ Pakistani dramas in HD quality — completely free. With daily updates, push notifications, and a favorites watchlist, you will never miss a moment of your favorite Pakistani drama again.</p>
     </div>
 </section>
 
