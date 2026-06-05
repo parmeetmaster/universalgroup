@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /tmp/
+
+Sitemap: https://pakistanidramaapp.animekill.com/sitemap.xml
