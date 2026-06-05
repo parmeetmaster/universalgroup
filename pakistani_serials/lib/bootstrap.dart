@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'core/adblock/ad_blocker.dart';
 import 'core/ads/ad_service.dart';
 import 'core/connectivity/connectivity_service.dart';
 import 'di/injection.dart';
@@ -52,6 +53,9 @@ Future<void> bootstrap(Widget Function() builder) async {
 
   // Init AdMob SDK + preload interstitials (non-blocking)
   getIt<AdService>().init();
+
+  // Init ad blocker — downloads filter lists in background (non-blocking)
+  AdBlocker.instance.init();
 
   Bloc.observer = _AppBlocObserver();
 

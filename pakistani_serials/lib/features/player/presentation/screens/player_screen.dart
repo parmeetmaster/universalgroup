@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../../../../core/adblock/ad_blocker.dart';
 import 'sources_screen.dart';
 
 // Video Downloader ExoPlayer colors — exact match
@@ -621,6 +622,7 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
 
   InAppWebViewSettings get _webviewSettings => InAppWebViewSettings(
         useShouldOverrideUrlLoading: true,
+        useShouldInterceptRequest: true,
         allowsInlineMediaPlayback: true,
         mediaPlaybackRequiresUserGesture: false,
         enableViewportScale: true,
@@ -628,6 +630,8 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
       );
 
   Widget _buildWebView() {
+    final blocker = AdBlocker.instance;
+
     final yt = _youtubeVideoId;
     if (yt != null) {
       return InAppWebView(
@@ -637,6 +641,10 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
           baseUrl: WebUri.uri(Uri.https('www.youtube-nocookie.com', '/')),
         ),
         onWebViewCreated: (c) => _controller = c,
+        shouldInterceptRequest: (_, req) async {
+          if (blocker.isAdHost(req.url.host)) return WebResourceResponse(statusCode: 204);
+          return null;
+        },
         onRenderProcessGone: (_, __) { if (!_disposed) _close(); },
       );
     }
@@ -650,6 +658,10 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
           baseUrl: WebUri.uri(Uri.https('www.dailymotion.com', '/')),
         ),
         onWebViewCreated: (c) => _controller = c,
+        shouldInterceptRequest: (_, req) async {
+          if (blocker.isAdHost(req.url.host)) return WebResourceResponse(statusCode: 204);
+          return null;
+        },
         onRenderProcessGone: (_, __) { if (!_disposed) _close(); },
       );
     }
@@ -661,14 +673,27 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
         headers: { 'Referer': _referer, 'Origin': _referer },
       ),
       onWebViewCreated: (c) => _controller = c,
+      onLoadStart: (controller, url) {
+        // Inject anti-popup JS early
+        controller.evaluateJavascript(source: AdBlocker.antiPopupEarlyJs);
+      },
+      onLoadStop: (controller, url) {
+        // Inject full cosmetic filtering + overlay removal after page load
+        controller.evaluateJavascript(source: AdBlocker.antiPopupEarlyJs);
+        controller.evaluateJavascript(source: AdBlocker.antiAdFullJs);
+      },
       shouldOverrideUrlLoading: (_, action) async {
+        final url = action.request.url?.toString() ?? '';
         final host = action.request.url?.host ?? '';
         if (host.isEmpty) return NavigationActionPolicy.ALLOW;
-        if (_isAdHost(host)) return NavigationActionPolicy.CANCEL;
+        if (blocker.isAdOrSuspicious(url)) return NavigationActionPolicy.CANCEL;
         return NavigationActionPolicy.ALLOW;
       },
       shouldInterceptRequest: (_, req) async {
-        if (_isAdHost(req.url.host)) return WebResourceResponse(statusCode: 204);
+        final host = req.url.host;
+        if (blocker.isAdHost(host)) {
+          return WebResourceResponse(statusCode: 204);
+        }
         return null;
       },
       onRenderProcessGone: (_, __) { if (!_disposed) _close(); },
@@ -719,15 +744,4 @@ class _EmbedPlayerState extends State<_EmbedPlayer> {
     );
   }
 
-  static bool _isAdHost(String host) {
-    const patterns = [
-      'doubleclick.net', 'googlesyndication.com', 'googletagmanager.com',
-      'googletagservices.com', 'adservice.google', 'adsterra', 'popads',
-      'propellerads', 'onclickstar', 'exosrv', 'exoclick', 'hilltopads',
-      'trafficjunky', 'clickadu', 'mgid', 'taboola', 'outbrain', 'histats',
-      'mc.yandex', 'yandex.metric', 'zedo', 'pubmatic', 'rubiconproject', 'chartbeat',
-    ];
-    final h = host.toLowerCase();
-    return patterns.any(h.contains);
-  }
 }
