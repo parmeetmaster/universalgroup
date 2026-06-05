@@ -15,52 +15,49 @@ import 'di/injection.dart';
 
 
 Future<void> bootstrap(Widget Function() builder) async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  await Firebase.initializeApp();
-
-  // Enable Crashlytics collection (including debug builds)
-  await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
-
-  // Crashlytics: catch Flutter framework errors
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-  // Crashlytics: catch async errors not caught by Flutter
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
-
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Color(0xFF0B0B10),
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
-
-  HydratedBloc.storage = await HydratedStorage.build(
-    storageDirectory: HydratedStorageDirectory(
-      (await getApplicationDocumentsDirectory()).path,
-    ),
-  );
-
-  await configureDependencies();
-  await getIt<ConnectivityService>().init();
-
-  // Init AdMob SDK + preload interstitials (non-blocking)
-  getIt<AdService>().init();
-
-  // Init ad blocker — downloads filter lists in background (non-blocking)
-  AdBlocker.instance.init();
-
-  Bloc.observer = _AppBlocObserver();
-
   runZonedGuarded(
-    () => runApp(builder()),
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      await Firebase.initializeApp();
+
+      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+
+      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+
+      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Color(0xFF0B0B10),
+        systemNavigationBarIconBrightness: Brightness.light,
+      ));
+
+      HydratedBloc.storage = await HydratedStorage.build(
+        storageDirectory: HydratedStorageDirectory(
+          (await getApplicationDocumentsDirectory()).path,
+        ),
+      );
+
+      await configureDependencies();
+      await getIt<ConnectivityService>().init();
+
+      getIt<AdService>().init();
+
+      AdBlocker.instance.init();
+
+      Bloc.observer = _AppBlocObserver();
+
+      runApp(builder());
+    },
     (error, stack) {
       debugPrint('Uncaught: $error\n$stack');
       FirebaseCrashlytics.instance.recordError(error, stack);

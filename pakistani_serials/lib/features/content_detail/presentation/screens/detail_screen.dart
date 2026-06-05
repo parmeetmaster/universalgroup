@@ -90,13 +90,16 @@ class _LoadedState extends State<_Loaded> {
   }
 
   void _onScroll() {
+    if (!mounted) return;
     final ctx = _relatedKey.currentContext;
     if (ctx == null) return;
     final ro = ctx.findRenderObject();
-    if (ro is! RenderBox) return;
-    final topInViewport = ro.localToGlobal(Offset.zero).dy;
-    final active = topInViewport < MediaQuery.of(context).size.height * 0.5 ? 1 : 0;
-    if (active != _activeTab) setState(() => _activeTab = active);
+    if (ro is! RenderBox || !ro.attached) return;
+    try {
+      final topInViewport = ro.localToGlobal(Offset.zero).dy;
+      final active = topInViewport < MediaQuery.of(context).size.height * 0.5 ? 1 : 0;
+      if (active != _activeTab) setState(() => _activeTab = active);
+    } catch (_) {}
   }
 
   void _scrollTo(GlobalKey key) {

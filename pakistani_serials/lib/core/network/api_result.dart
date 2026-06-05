@@ -22,7 +22,14 @@ Future<Either<Failure, T>> handle<T>(Future<T> Function() fn) async {
 T unwrap<T>(Response<dynamic> res) {
   final body = res.data;
   if (body is Map && body['success'] == true) {
-    return body['data'] as T;
+    final data = body['data'];
+    if (data is T) return data;
+    // Handle List<dynamic> type erasure: Dart's reified generics can fail
+    // when the runtime type is a subtype (e.g. _GrowableList<Map<String, dynamic>>
+    // is not assignable to List<dynamic> in some cast scenarios).
+    if (data is List) return List<dynamic>.from(data) as T;
+    if (data is Map) return Map<String, dynamic>.from(data) as T;
+    return data as T;
   }
   throw DioException(
     requestOptions: res.requestOptions,
@@ -38,7 +45,7 @@ T unwrap<T>(Response<dynamic> res) {
 ) {
   final body = res.data;
   if (body is Map && body['success'] == true) {
-    final data = (body['data'] as List).cast<Map<String, dynamic>>();
+    final data = List<dynamic>.from(body['data'] as List).cast<Map<String, dynamic>>();
     final meta = (body['meta'] as Map?) ?? const {};
     return (
       items: data.map(fromJson).toList(),

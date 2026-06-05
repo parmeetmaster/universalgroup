@@ -96,7 +96,7 @@ export class PakNotificationCronService implements OnModuleInit {
 
   private async run() {
     // Flag-based: find episodes where notification_sent = 0
-    // Only notify if: published, not placeholder, has at least 1 active video
+    // Only notify if: published, not placeholder, has a source URL or active video
     const episodes = await this.episodeRepo
       .createQueryBuilder('e')
       .innerJoinAndSelect('e.drama', 'd')
@@ -106,7 +106,7 @@ export class PakNotificationCronService implements OnModuleInit {
       .andWhere('d.isPublished = 1')
       .andWhere('d.deletedAt IS NULL')
       .andWhere(
-        `EXISTS (SELECT 1 FROM episode_videos ev WHERE ev.episode_id = e.id AND ev.is_active = 1)`,
+        `(e.source_url IS NOT NULL AND e.source_url != '' OR EXISTS (SELECT 1 FROM episode_videos ev WHERE ev.episode_id = e.id AND ev.is_active = 1))`,
       )
       .orderBy('e.createdAt', 'ASC')
       .take(MAX_NOTIFICATIONS_PER_BATCH)

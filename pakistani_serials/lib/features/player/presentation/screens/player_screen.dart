@@ -160,6 +160,7 @@ class _NativePlayerState extends State<_NativePlayer> {
   }
 
   void _seekRelative(int seconds) {
+    if (!_isInitialized) return;
     final target = _position + Duration(seconds: seconds);
     final clamped = target < Duration.zero ? Duration.zero
         : target > _duration ? _duration : target;
@@ -168,12 +169,14 @@ class _NativePlayerState extends State<_NativePlayer> {
   }
 
   void _toggleMute() {
+    if (!_isInitialized) return;
     setState(() => _isMuted = !_isMuted);
     _ctrl.setVolume(_isMuted ? 0 : 1);
     _showControlsBriefly();
   }
 
   void _cycleSpeed() {
+    if (!_isInitialized) return;
     final idx = _speeds.indexOf(_speed);
     final next = _speeds[(idx + 1) % _speeds.length];
     setState(() => _speed = next);
@@ -209,6 +212,7 @@ class _NativePlayerState extends State<_NativePlayer> {
   }
 
   void _onSeek(double value) {
+    if (!_isInitialized) return;
     final target = Duration(milliseconds: (value * _duration.inMilliseconds).round());
     _ctrl.seekTo(target);
   }
