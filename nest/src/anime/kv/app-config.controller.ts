@@ -17,6 +17,7 @@ class AppConfigDto {
   top_sites!: TopSiteDto[];
   grace_enabled?: boolean;
   grace_max_build_version?: number;
+  blocked_regions?: string[];
 }
 
 const CONFIG_KEY = 'app_config';
@@ -46,6 +47,7 @@ export class AppConfigController {
           top_sites: this.parseNested(raw.top_sites, []),
           grace_enabled: raw.grace_enabled ?? true,
           grace_max_build_version: Number(raw.grace_max_build_version) || 0,
+          blocked_regions: this.parseNested(raw.blocked_regions, []),
         },
         updatedAt: entry.updatedAt,
       };
@@ -69,6 +71,7 @@ export class AppConfigController {
       top_sites: JSON.stringify(body.top_sites || []),
       grace_enabled: body.grace_enabled ?? true,
       grace_max_build_version: body.grace_max_build_version ?? 0,
+      blocked_regions: JSON.stringify(body.blocked_regions || []),
     });
 
     const entry = await this.kvService.set(CONFIG_KEY, value);

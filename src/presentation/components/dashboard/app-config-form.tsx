@@ -45,6 +45,7 @@ interface AppConfig {
   force_update_after_version: number;
   trends: string[];
   top_sites: TopSite[];
+  blocked_regions: string[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,6 +92,14 @@ function parseConfig(raw: string): AppConfig {
     }
   } catch {}
 
+  let blockedRegions: string[] = [];
+  try {
+    const parsed = parseDeepString(obj.blocked_regions);
+    if (Array.isArray(parsed)) {
+      blockedRegions = parsed.filter(Boolean);
+    }
+  } catch {}
+
   return {
     app_version: obj.app_version || "",
     update_build_version: Number(obj.update_build_version) || 0,
@@ -99,6 +108,7 @@ function parseConfig(raw: string): AppConfig {
     force_update_after_version: Number(obj.force_update_after_version) || 0,
     trends,
     top_sites: topSites,
+    blocked_regions: blockedRegions,
   };
 }
 
@@ -111,6 +121,7 @@ function configToJson(config: AppConfig): string {
     force_update_after_version: config.force_update_after_version,
     trends: JSON.stringify(config.trends),
     top_sites: JSON.stringify(config.top_sites),
+    blocked_regions: JSON.stringify(config.blocked_regions),
   });
 }
 
@@ -120,6 +131,7 @@ export function AppConfigForm() {
   const [saving, setSaving] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newTrend, setNewTrend] = useState("");
+  const [newRegion, setNewRegion] = useState("");
   const [newSiteName, setNewSiteName] = useState("");
   const [newSiteUrl, setNewSiteUrl] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -144,6 +156,7 @@ export function AppConfigForm() {
           force_update_after_version: 1,
           trends: [],
           top_sites: [],
+          blocked_regions: [],
         });
       }
     } catch {
@@ -190,6 +203,17 @@ export function AppConfigForm() {
   const removeUrl = (index: number) => {
     if (!config) return;
     update({ blocked_urls: config.blocked_urls.filter((_, i) => i !== index) });
+  };
+
+  const addRegion = () => {
+    if (!newRegion.trim() || !config) return;
+    update({ blocked_regions: [...config.blocked_regions, newRegion.trim()] });
+    setNewRegion("");
+  };
+
+  const removeRegion = (index: number) => {
+    if (!config) return;
+    update({ blocked_regions: config.blocked_regions.filter((_, i) => i !== index) });
   };
 
   const addTrend = () => {
@@ -352,6 +376,44 @@ export function AppConfigForm() {
               _focus={{ bg: "white", borderColor: "brand.500" }}
             />
             <Button size="sm" variant="outline" colorScheme="brand" borderRadius="lg" leftIcon={<MdAdd />} onClick={addUrl} flexShrink={0}>
+              Add
+            </Button>
+          </Flex>
+        </FormControl>
+
+        <Divider />
+
+        {/* Blocked Regions */}
+        <FormControl>
+          <FormLabel fontSize="sm" fontWeight="600" color="gray.600">
+            Blocked Regions
+            <Badge ml={2} bg="gray.100" color="gray.600" borderRadius="lg" fontSize="xs">{config.blocked_regions.length}</Badge>
+          </FormLabel>
+          <Text fontSize="xs" color="gray.400" mb={2}>Regions/countries where top sites open via Google search instead of direct URL</Text>
+
+          {config.blocked_regions.length > 0 && (
+            <Flex wrap="wrap" gap={2} mb={3}>
+              {config.blocked_regions.map((r, i) => (
+                <Tag key={i} size="md" borderRadius="full" variant="subtle" colorScheme="orange">
+                  <TagLabel>{r}</TagLabel>
+                  <TagCloseButton onClick={() => removeRegion(i)} />
+                </Tag>
+              ))}
+            </Flex>
+          )}
+
+          <Flex gap={2}>
+            <Input
+              value={newRegion}
+              onChange={(e) => setNewRegion(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addRegion()}
+              placeholder="e.g. Uttar Pradesh or IN"
+              size="sm"
+              borderRadius="lg"
+              bg="gray.50"
+              _focus={{ bg: "white", borderColor: "brand.500" }}
+            />
+            <Button size="sm" variant="outline" colorScheme="brand" borderRadius="lg" leftIcon={<MdAdd />} onClick={addRegion} flexShrink={0}>
               Add
             </Button>
           </Flex>
