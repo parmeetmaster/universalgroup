@@ -311,7 +311,163 @@ class _LoadedState extends State<_Loaded> {
             ),
           ),
         ),
+        // Fast episode scroller (right edge) — only for 20+ episodes
+        if (state.episodes.length >= 20 && _activeTab == 0)
+          _EpisodeFastScroller(
+            totalEpisodes: state.episodes.length,
+            scrollController: _scrollCtrl,
+            episodesKey: _episodesKey,
+          ),
       ],
+    );
+  }
+}
+
+class _EpisodeFastScroller extends StatefulWidget {
+  const _EpisodeFastScroller({
+    required this.totalEpisodes,
+    required this.scrollController,
+    required this.episodesKey,
+  });
+
+  final int totalEpisodes;
+  final ScrollController scrollController;
+  final GlobalKey episodesKey;
+
+  @override
+  State<_EpisodeFastScroller> createState() => _EpisodeFastScrollerState();
+}
+
+class _EpisodeFastScrollerState extends State<_EpisodeFastScroller> {
+  bool _dragging = false;
+  double _dragFraction = 0;
+  int _currentEp = 1;
+  double? _episodesStartOffset;
+  int _lastScrolledEp = -1;
+
+  void _cacheEpisodesStart() {
+    final ctx = widget.episodesKey.currentContext;
+    if (ctx == null || !widget.scrollController.hasClients) return;
+    final ro = ctx.findRenderObject();
+    if (ro is! RenderBox || !ro.attached) return;
+    _episodesStartOffset = widget.scrollController.offset +
+        ro.localToGlobal(Offset.zero).dy;
+  }
+
+  void _onDragStart(double localY, double trackHeight) {
+    _cacheEpisodesStart();
+    _lastScrolledEp = -1;
+    _onDrag(localY, trackHeight);
+  }
+
+  void _onDrag(double localY, double trackHeight) {
+    final fraction = (localY / trackHeight).clamp(0.0, 1.0);
+    final ep = (fraction * (widget.totalEpisodes - 1)).round() + 1;
+
+    setState(() {
+      _dragging = true;
+      _dragFraction = fraction;
+      _currentEp = ep;
+    });
+
+    // Skip if same episode — prevents jitter
+    if (ep == _lastScrolledEp) return;
+    _lastScrolledEp = ep;
+
+    final startOffset = _episodesStartOffset;
+    if (startOffset == null || !widget.scrollController.hasClients) return;
+    const tileHeight = 88.0;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final target = startOffset + (ep - 1) * tileHeight - (screenHeight / 3);
+    widget.scrollController.animateTo(
+      target.clamp(0.0, widget.scrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
+    return Positioned(
+      right: 0,
+      top: topPad + 60,
+      bottom: 80,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final trackHeight = constraints.maxHeight;
+          final thumbTop = _dragging
+              ? (_dragFraction * (trackHeight - 40)).clamp(0.0, trackHeight - 40)
+              : 0.0;
+
+          return GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onVerticalDragStart: (d) =>
+                _onDragStart(d.localPosition.dy, trackHeight),
+            onVerticalDragUpdate: (d) =>
+                _onDrag(d.localPosition.dy, trackHeight),
+            onVerticalDragEnd: (_) => setState(() => _dragging = false),
+            onVerticalDragCancel: () => setState(() => _dragging = false),
+            child: SizedBox(
+              width: 40,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Track line
+                  Positioned(
+                    right: 6,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 3,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Thumb handle
+                  if (_dragging)
+                    Positioned(
+                      right: 2,
+                      top: thumbTop,
+                      child: Container(
+                        width: 12,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ),
+                  // Bubble — WhatsApp style
+                  if (_dragging)
+                    Positioned(
+                      right: 44,
+                      top: thumbTop,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'Ep $_currentEp',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
