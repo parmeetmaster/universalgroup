@@ -124,7 +124,10 @@ class _LoadedState extends State<_Loaded> {
   }
 
   void _saveAndPlay(BuildContext context, String slug, int season, EpisodeModel ep) {
-    getIt<WatchHistoryService>().saveLastPlayed(slug, season, ep.episodeNumber);
+    final watchHistory = getIt<WatchHistoryService>();
+    watchHistory.saveLastPlayed(slug, season, ep.episodeNumber);
+    watchHistory.markWatched(slug, ep.episodeNumber);
+    setState(() {}); // refresh watched state
     // Navigate first, then show ad on the new screen
     context.push(AppRoutes.sources, extra: ep);
     if (adsEnabled) {
@@ -236,6 +239,8 @@ class _LoadedState extends State<_Loaded> {
                             index: e.key,
                             fallbackImageUrl:
                                 c.posterUrl ?? c.backdropUrl ?? '',
+                            isWatched: getIt<WatchHistoryService>()
+                                .isWatched(c.slug, e.value.episodeNumber),
                             onTap: () => _saveAndPlay(
                                 context, c.slug, state.currentSeason, e.value),
                           ),
@@ -893,11 +898,13 @@ class _EpisodeTile extends StatelessWidget {
     required this.index,
     required this.onTap,
     required this.fallbackImageUrl,
+    this.isWatched = false,
   });
   final EpisodeModel episode;
   final int index;
   final VoidCallback onTap;
   final String fallbackImageUrl;
+  final bool isWatched;
 
   @override
   Widget build(BuildContext context) {
@@ -910,13 +917,17 @@ class _EpisodeTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 34,
-              child: Text(
-                '${episode.episodeNumber}',
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+              width: 36,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${episode.episodeNumber}',
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -1003,6 +1014,23 @@ class _EpisodeTile extends StatelessWidget {
                         ),
                     ],
                   ),
+                  if (isWatched) ...[
+                    const SizedBox(height: 4),
+                    const Row(
+                      children: [
+                        Icon(Icons.visibility, color: Colors.white38, size: 13),
+                        SizedBox(width: 4),
+                        Text(
+                          'Watched',
+                          style: TextStyle(
+                            color: Colors.white38,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

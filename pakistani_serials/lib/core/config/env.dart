@@ -1,14 +1,15 @@
 class Env {
   const Env._();
 
-  static const String apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://global.animekill.com/api/pakistani-serials',
-  );
+  static const String env = String.fromEnvironment('ENV', defaultValue: 'prod');
+  static bool get isProd => env == 'prod';
+  static bool get isDev => env == 'dev';
 
-  /// Config endpoint on global API (used by splash for update check)
-  static const String globalConfigUrl =
-      'https://global.animekill.com/api/pakistani-serials/config';
+  static const String _prodUrl = 'https://global.animekill.com/api/pakistani-serials';
+  static const String _devUrl = 'http://10.0.2.2:3090/api/pakistani-serials';
+
+  static String get apiBaseUrl => isProd ? _prodUrl : _devUrl;
+  static String get globalConfigUrl => '$apiBaseUrl/config';
 
   static const String appName = 'Pakistani Serials';
 

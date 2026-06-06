@@ -146,7 +146,7 @@ class EpisodeModel {
     required this.episodeNumber,
     this.title,
     this.synopsis,
-    required this.durationSeconds,
+    this.durationSeconds = 0,
     this.thumbnailUrl,
     this.airDate,
     this.playUrl,
@@ -163,6 +163,7 @@ class EpisodeModel {
   final int episodeNumber;
   final String? title;
   final String? synopsis;
+  @JsonKey(defaultValue: 0)
   final int durationSeconds;
   final String? thumbnailUrl;
   final String? airDate;

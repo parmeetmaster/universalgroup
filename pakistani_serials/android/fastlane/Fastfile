@@ -5,12 +5,14 @@ platform :android do
   lane :deploy_prod do
     # Flutter build
     Dir.chdir("../..") do
-      sh("fvm flutter build appbundle --release --dart-define=API_BASE_URL=http://pak-ott.animekill.com/v1")
+      sh("fvm flutter build appbundle --release --dart-define=ENV=prod")
     end
+
+    aab_path = File.expand_path("../../build/app/outputs/bundle/release/app-release.aab", __dir__)
 
     upload_to_play_store(
       track: "production",
-      aab: "../../build/app/outputs/bundle/release/app-release.aab",
+      aab: aab_path,
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true,
@@ -21,15 +23,26 @@ platform :android do
     UI.success("Pakistani Drama deployed to production!")
   end
 
+  desc "Build APK and upload to Firebase App Distribution (main group)"
+  lane :deploy_firebase do
+    Dir.chdir("../..") do
+      sh("fvm flutter build apk --release --dart-define=ENV=prod")
+      sh('firebase appdistribution:distribute build/app/outputs/flutter-apk/app-release.apk --app 1:938976152737:android:ef67d486442124fbeab4e0 --groups main --release-notes "Latest build from fastlane"')
+    end
+    UI.success("Pakistani Drama deployed to Firebase Distribution (main group)!")
+  end
+
   desc "Build and upload to internal testing"
   lane :deploy_internal do
     Dir.chdir("../..") do
-      sh("fvm flutter build appbundle --release --dart-define=API_BASE_URL=http://pak-ott.animekill.com/v1")
+      sh("fvm flutter build appbundle --release --dart-define=ENV=prod")
     end
+
+    aab_path = File.expand_path("../../build/app/outputs/bundle/release/app-release.aab", __dir__)
 
     upload_to_play_store(
       track: "internal",
-      aab: "../../build/app/outputs/bundle/release/app-release.aab",
+      aab: aab_path,
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true,

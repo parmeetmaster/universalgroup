@@ -132,7 +132,7 @@ EpisodeModel _$EpisodeModelFromJson(Map<String, dynamic> json) => EpisodeModel(
   episodeNumber: (json['number'] as num).toInt(),
   title: json['title'] as String?,
   synopsis: json['synopsis'] as String?,
-  durationSeconds: (json['durationSeconds'] as num).toInt(),
+  durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
   thumbnailUrl: json['thumbnailUrl'] as String?,
   airDate: json['airDate'] as String?,
   playUrl: json['playUrl'] as String?,

@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _key = 'pak_last_played';
+const _watchedKey = 'pak_watched_episodes';
 
 class LastPlayed {
   const LastPlayed({required this.seasonNumber, required this.episodeNumber});
@@ -23,6 +24,8 @@ class LastPlayed {
 class WatchHistoryService {
   WatchHistoryService(this._prefs);
   final SharedPreferences _prefs;
+
+  // ── Last Played ──────────────────────────────────
 
   Future<void> saveLastPlayed(
     String dramaSlug,
@@ -47,5 +50,34 @@ class WatchHistoryService {
     final raw = _prefs.getString(_key);
     if (raw == null) return {};
     return Map<String, dynamic>.from(jsonDecode(raw) as Map);
+  }
+
+  // ── Watched Episodes ─────────────────────────────
+
+  Future<void> markWatched(String dramaSlug, int episodeNumber) async {
+    final all = _readWatched();
+    final eps = all[dramaSlug] ?? <int>[];
+    if (!eps.contains(episodeNumber)) {
+      eps.add(episodeNumber);
+      all[dramaSlug] = eps;
+      await _prefs.setString(_watchedKey, jsonEncode(all));
+    }
+  }
+
+  bool isWatched(String dramaSlug, int episodeNumber) {
+    final all = _readWatched();
+    return all[dramaSlug]?.contains(episodeNumber) ?? false;
+  }
+
+  Set<int> getWatchedEpisodes(String dramaSlug) {
+    final all = _readWatched();
+    return (all[dramaSlug] ?? <int>[]).toSet();
+  }
+
+  Map<String, List<int>> _readWatched() {
+    final raw = _prefs.getString(_watchedKey);
+    if (raw == null) return {};
+    final map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    return map.map((k, v) => MapEntry(k, List<int>.from(v as List)));
   }
 }
