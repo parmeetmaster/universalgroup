@@ -15,7 +15,7 @@ const _browseNativeId = 'ca-app-pub-9421269541566983/7198355391';
 const _interstitialPoolSize = 2;
 
 /// Master kill switch — set to false to disable ALL ads app-wide.
-const adsEnabled = true;
+const adsEnabled = false;
 
 @singleton
 class AdService {

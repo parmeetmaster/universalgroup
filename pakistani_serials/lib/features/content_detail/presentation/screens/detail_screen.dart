@@ -341,9 +341,45 @@ class _EpisodeFastScroller extends StatefulWidget {
 class _EpisodeFastScrollerState extends State<_EpisodeFastScroller> {
   bool _dragging = false;
   double _dragFraction = 0;
+  double _scrollFraction = 0;
   int _currentEp = 1;
   double? _episodesStartOffset;
   int _lastScrolledEp = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.scrollController.addListener(_onListScroll);
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_onListScroll);
+    super.dispose();
+  }
+
+  void _onListScroll() {
+    if (_dragging || !mounted) return;
+    final sc = widget.scrollController;
+    if (!sc.hasClients) return;
+
+    // Calculate fraction based on episode section, not whole page
+    final ctx = widget.episodesKey.currentContext;
+    if (ctx == null) return;
+    final ro = ctx.findRenderObject();
+    if (ro is! RenderBox || !ro.attached) return;
+
+    final epStartInViewport = ro.localToGlobal(Offset.zero).dy;
+    final epStartOffset = sc.offset + epStartInViewport;
+    const tileHeight = 88.0;
+    final epTotalHeight = widget.totalEpisodes * tileHeight;
+
+    if (epTotalHeight <= 0) return;
+    final fraction = ((sc.offset - epStartOffset + 300) / epTotalHeight)
+        .clamp(0.0, 1.0);
+
+    setState(() => _scrollFraction = fraction);
+  }
 
   void _cacheEpisodesStart() {
     final ctx = widget.episodesKey.currentContext;
@@ -367,10 +403,10 @@ class _EpisodeFastScrollerState extends State<_EpisodeFastScroller> {
     setState(() {
       _dragging = true;
       _dragFraction = fraction;
+      _scrollFraction = fraction;
       _currentEp = ep;
     });
 
-    // Skip if same episode — prevents jitter
     if (ep == _lastScrolledEp) return;
     _lastScrolledEp = ep;
 
@@ -389,6 +425,8 @@ class _EpisodeFastScrollerState extends State<_EpisodeFastScroller> {
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
+    const thumbH = 36.0;
+
     return Positioned(
       right: 0,
       top: topPad + 60,
@@ -396,9 +434,9 @@ class _EpisodeFastScrollerState extends State<_EpisodeFastScroller> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final trackHeight = constraints.maxHeight;
-          final thumbTop = _dragging
-              ? (_dragFraction * (trackHeight - 40)).clamp(0.0, trackHeight - 40)
-              : 0.0;
+          final fraction = _dragging ? _dragFraction : _scrollFraction;
+          final thumbTop =
+              (fraction * (trackHeight - thumbH)).clamp(0.0, trackHeight - thumbH);
 
           return GestureDetector(
             behavior: HitTestBehavior.translucent,
@@ -409,42 +447,43 @@ class _EpisodeFastScrollerState extends State<_EpisodeFastScroller> {
             onVerticalDragEnd: (_) => setState(() => _dragging = false),
             onVerticalDragCancel: () => setState(() => _dragging = false),
             child: SizedBox(
-              width: 40,
+              width: 36,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // Track line
+                  // Track — flush right edge
                   Positioned(
-                    right: 6,
+                    right: 0,
                     top: 0,
                     bottom: 0,
                     child: Container(
-                      width: 3,
+                      width: 4,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
+                        color: Colors.white.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
-                  // Thumb handle
-                  if (_dragging)
-                    Positioned(
-                      right: 2,
-                      top: thumbTop,
-                      child: Container(
-                        width: 12,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
+                  // Seeker thumb — always visible, tracks scroll position
+                  Positioned(
+                    right: 0,
+                    top: thumbTop,
+                    child: Container(
+                      width: _dragging ? 10 : 6,
+                      height: thumbH,
+                      decoration: BoxDecoration(
+                        color: _dragging
+                            ? AppColors.accent
+                            : Colors.white.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                  // Bubble — WhatsApp style
+                  ),
+                  // Bubble — only while dragging
                   if (_dragging)
                     Positioned(
-                      right: 44,
-                      top: thumbTop,
+                      right: 20,
+                      top: thumbTop - 2,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 8),
