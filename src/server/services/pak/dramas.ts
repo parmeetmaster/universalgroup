@@ -194,7 +194,7 @@ export async function getEpisodes(slug: string, seasonNumber: number) {
   const rows = await query(
     "pak",
     `SELECT e.id, e.drama_id, e.season_id, e.number, e.title, e.synopsis,
-            e.duration_seconds, e.thumbnail_url, e.air_date, e.is_published,
+            e.air_date, e.is_published, e.source_url,
             e.created_at, e.updated_at,
             (SELECT ev.url FROM episode_videos ev
              WHERE ev.episode_id = e.id AND ev.is_active = 1

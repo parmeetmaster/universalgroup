@@ -18,7 +18,7 @@ export class PakDramasController {
 
   @Get('dramas/rail/:railId')
   @ApiOperation({ summary: 'Get all dramas for a home rail with pagination + genre filter' })
-  @ApiParam({ name: 'railId', description: 'Rail ID: hero, latest-releases, new-dramas, monthly-popular, completed, or DB rail ID' })
+  @ApiParam({ name: 'railId', description: 'Rail ID: hero, latest-releases, new-dramas, top10 (all-time views), trending (weekly views), or completed (last episode 30+ days ago)' })
   @ApiQuery({ name: 'genre', required: false, description: 'Filter by genre slug' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number (default 1)' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page (default 50)' })
@@ -39,10 +39,12 @@ export class PakDramasController {
   }
 
   @Get('dramas/:slug')
-  @ApiOperation({ summary: 'Get a drama by slug' })
+  @ApiOperation({ summary: 'Get a drama by slug (records a view)' })
   @ApiParam({ name: 'slug', type: String })
-  detail(@Param('slug') slug: string) {
-    return this.svc.findBySlug(slug);
+  async detail(@Param('slug') slug: string) {
+    const drama = await this.svc.findBySlug(slug);
+    void this.engagementSvc.recordView(slug).catch(() => undefined);
+    return drama;
   }
 
   @Get('dramas/:slug/related')

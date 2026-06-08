@@ -7,7 +7,7 @@ Netflix-style Android app for Pakistani dramas. Flutter 3.41.5 (via fvm).
 ### End-to-end verification (MANDATORY)
 After any UI or screen change, launch the app on an Android emulator/device and verify:
 1. Screen renders without red screen
-2. Data loads from the backend (point at local `http://localhost:3008/v1` or prod `http://pak-ott.animekill.com/v1`)
+2. Data loads from the backend (`https://global.animekill.com/api/pakistani-serials`; for a local backend run with `--dart-define=ENV=dev`)
 3. Loading, error, and empty states all behave correctly
 4. Back-navigation works
 
@@ -17,13 +17,13 @@ Do NOT mark a UI task done without visual verification. `flutter analyze` / `flu
 
 ```bash
 fvm flutter pub get
-fvm flutter run --dart-define=API_BASE_URL=http://localhost:3008/v1
-fvm flutter run --release --dart-define=API_BASE_URL=http://pak-ott.animekill.com/v1
+fvm flutter run                       # prod backend → https://global.animekill.com/api/pakistani-serials
+fvm flutter run --dart-define=ENV=dev # local backend → http://10.0.2.2:3090/api/pakistani-serials
 dart run build_runner build --delete-conflicting-outputs
 fvm flutter gen-l10n
 fvm flutter test
 fvm flutter analyze
-fvm flutter build apk --release --dart-define=API_BASE_URL=http://pak-ott.animekill.com/v1
+fvm flutter build apk --release       # prod backend → global.animekill.com
 ```
 
 ## Architecture — Clean + BLoC
@@ -64,7 +64,7 @@ Routing: `go_router`. Central `app_router.dart`.
 
 ## API
 
-Base URL is injected via `--dart-define=API_BASE_URL=...`. Default in `core/config/env.dart` is the local dev URL.
+Base URL is selected by the `ENV` dart-define in `core/config/env.dart`: default `prod` → `https://global.animekill.com/api/pakistani-serials`; `ENV=dev` → `http://10.0.2.2:3090/api/pakistani-serials`. There is no `API_BASE_URL` define — in prod the app talks to global.animekill.com only.
 
 Response envelope (backend):
 - Success: `{ success: true, data, meta? }`
@@ -74,4 +74,4 @@ Response envelope (backend):
 
 ## Deployment
 
-Production: build release APK pointed at `http://pak-ott.animekill.com/v1`. Install via `adb install -r build/app/outputs/flutter-apk/app-release.apk`.
+Production: build release APK (defaults to `https://global.animekill.com/api/pakistani-serials`). Install via `adb install -r build/app/outputs/flutter-apk/app-release.apk`.

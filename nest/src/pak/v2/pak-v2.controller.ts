@@ -48,10 +48,11 @@ export class PakV2Controller {
   }
 
   @Get('dramas/:slug')
-  @ApiOperation({ summary: 'V2 drama detail with proxy image URLs' })
+  @ApiOperation({ summary: 'V2 drama detail with proxy image URLs (records a view)' })
   @ApiParam({ name: 'slug', type: String })
   async dramaDetail(@Param('slug') slug: string) {
     const drama = await this.dramasSvc.findBySlug(slug);
+    void this.engagementSvc.recordView(slug).catch(() => undefined);
     return transformDramaImages(drama);
   }
 

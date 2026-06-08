@@ -33,6 +33,18 @@ class SPa extends S {
   String get homeTop10Today => 'ਅੱਜ ਦੇ ਟੌਪ 10 ਡਰਾਮੇ';
 
   @override
+  String get homeCompleted => 'Series Completed';
+
+  @override
+  String get homeLatestReleases => 'Latest Releases';
+
+  @override
+  String get homeNewSerials => 'New on Pakistani Serials';
+
+  @override
+  String get homeTrendingWeek => 'Trending This Week';
+
+  @override
   String get homeFeatured => 'ਖਾਸ';
 
   @override

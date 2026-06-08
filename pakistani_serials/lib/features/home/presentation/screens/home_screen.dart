@@ -106,7 +106,7 @@ class _LoadedContent extends StatelessWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 18)),
           SliverToBoxAdapter(
             child: ContentRail(
-              title: recentRelease.title,
+              title: s.homeLatestReleases,
               railId: recentRelease.id,
               items: recentRelease.items,
               variant: RailVariant.landscape,
@@ -123,6 +123,9 @@ class _LoadedContent extends StatelessWidget {
               final rail = otherRails[i];
               final isTop10 = rail.railType == 'top10' ||
                   rail.title.toLowerCase().contains('top 10');
+              final isCompleted = rail.id == 'completed' ||
+                  rail.railType == 'custom';
+              final isTrending = rail.railType == 'trending';
               final isNewRail = rail.railType == 'new' ||
                   rail.title.toLowerCase().contains('new');
               final variant = !isTop10 && i.isOdd
@@ -138,7 +141,15 @@ class _LoadedContent extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.only(top: 6, bottom: 26),
                       child: ContentRail(
-                        title: isTop10 ? s.homeTop10Today : rail.title,
+                        title: isTop10
+                            ? s.homeTop10Today
+                            : isCompleted
+                                ? s.homeCompleted
+                                : isNewRail
+                                    ? s.homeNewSerials
+                                    : isTrending
+                                        ? s.homeTrendingWeek
+                                        : rail.title,
                         railId: rail.id,
                         items: rail.items,
                         isTop10: isTop10,

@@ -33,6 +33,18 @@ class SUr extends S {
   String get homeTop10Today => 'آج کے ٹاپ 10 ڈرامے';
 
   @override
+  String get homeCompleted => 'مکمل شدہ سیریز';
+
+  @override
+  String get homeLatestReleases => 'تازہ ترین قسطیں';
+
+  @override
+  String get homeNewSerials => 'نئی سیریز';
+
+  @override
+  String get homeTrendingWeek => 'اس ہفتے ٹرینڈنگ';
+
+  @override
   String get homeFeatured => 'خاص';
 
   @override

@@ -15,7 +15,7 @@ const _browseNativeId = 'ca-app-pub-9421269541566983/7198355391';
 const _interstitialPoolSize = 2;
 
 /// Master kill switch — set to false to disable ALL ads app-wide.
-const adsEnabled = false;
+const adsEnabled = true;
 
 @singleton
 class AdService {
@@ -278,7 +278,7 @@ class _NativeAdWidgetState extends State<_NativeAdWidget> {
     if (!_isLoaded || _nativeAd == null) return const SizedBox.shrink();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      height: 120,
+      height: 144,
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A24),
         borderRadius: BorderRadius.circular(10),

@@ -1,5 +1,4 @@
 import {
-  BadGatewayException,
   Injectable,
   Logger,
   NotFoundException,
@@ -76,9 +75,6 @@ export class PakEpisodesService {
       ytIndex++;
     }
 
-    if (servers.length === 0) {
-      throw new BadGatewayException('No playable source found for this episode');
-    }
     return { servers };
   }
 
@@ -301,6 +297,23 @@ export class PakEpisodesService {
       relations: { drama: true, season: true, videos: true },
     });
     if (!ep) throw new NotFoundException('Episode not found');
+
+    // Record a view on the parent drama whenever an episode is opened
+    if (ep.drama?.id) {
+      void this.dramaRepo
+        .createQueryBuilder()
+        .update(Drama)
+        .set({
+          dailyViews: () => 'daily_views + 1',
+          weekViews: () => 'week_views + 1',
+          monthlyViews: () => 'monthly_views + 1',
+          allTimeViews: () => 'all_time_views + 1',
+        })
+        .where('id = :id', { id: ep.drama.id })
+        .execute()
+        .catch(() => undefined);
+    }
+
     const active = (ep.videos ?? [])
       .filter((v) => v.isActive)
       .sort((a, b) => a.priority - b.priority);

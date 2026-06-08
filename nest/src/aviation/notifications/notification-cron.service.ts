@@ -55,8 +55,18 @@ export class NotificationCronService {
 
       // Send notifications for new articles (max 5 per scan to avoid spam)
       const toSend = newArticles.slice(0, 5);
+      let sentCount = 0;
 
       for (const article of toSend) {
+        // INSERT FIRST — the UNIQUE constraint on articleUrl acts as a
+        // distributed lock across PM2 cluster instances. Only the instance
+        // that successfully inserts gets to send the FCM notification.
+        const inserted = await this.claimArticle(article);
+        if (!inserted) {
+          this.logger.log(`Skipped (claimed by another instance): ${article.title}`);
+          continue;
+        }
+
         const sent = await this.firebase.sendToTopic(
           TOPIC,
           article.title,
@@ -65,24 +75,48 @@ export class NotificationCronService {
           { url: article.url },
         );
 
-        if (sent) {
-          // Save to DB to prevent duplicate
-          const notification = this.sentRepo.create({
-            articleUrl: article.url,
-            title: article.title,
-            image: article.image,
-          });
-
-          await this.sentRepo.save(notification).catch((err) => {
-            // Duplicate key — already saved by another instance
-            this.logger.warn(`Duplicate save skipped: ${err.message}`);
-          });
+        if (!sent) {
+          // FCM failed — remove the claim so next scan can retry
+          await this.sentRepo.delete({ articleUrl: article.url }).catch(() => {});
+        } else {
+          sentCount++;
         }
       }
 
-      this.logger.log(`Scan complete. Sent ${toSend.length} notifications.`);
+      this.logger.log(`Scan complete. Sent ${sentCount} notifications.`);
     } catch (err) {
       this.logger.error(`Scan failed: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  /**
+   * Try to insert article into sent_notifications. Returns true if this
+   * instance claimed it (new row), false if another instance already did.
+   */
+  private async claimArticle(article: ScrapedArticle): Promise<boolean> {
+    try {
+      const result = await this.sentRepo
+        .createQueryBuilder()
+        .insert()
+        .into(SentNotificationEntity)
+        .values({
+          articleUrl: article.url,
+          title: article.title,
+          image: article.image,
+        })
+        .orIgnore() // INSERT IGNORE — silently skips on duplicate key
+        .execute();
+
+      // affectedRows === 0 means duplicate was ignored
+      return (result.raw?.affectedRows ?? 0) > 0;
+    } catch (err) {
+      // Fallback: if INSERT IGNORE isn't supported, catch duplicate key
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('Duplicate') || message.includes('UNIQUE')) {
+        return false;
+      }
+      this.logger.warn(`Claim failed: ${message}`);
+      return false;
     }
   }
 

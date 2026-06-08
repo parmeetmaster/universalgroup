@@ -10,7 +10,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Response } from 'express';
 import { Drama } from '../entities/drama.entity';
-import { Episode } from '../entities/episode.entity';
 
 @ApiTags('pak-images')
 @Controller('pakistani-serials/img')
@@ -21,7 +20,6 @@ export class PakImageProxyController {
 
   constructor(
     @InjectRepository(Drama, 'pak') private readonly dramaRepo: Repository<Drama>,
-    @InjectRepository(Episode, 'pak') private readonly episodeRepo: Repository<Episode>,
   ) {}
 
   @Get(':imageId')
@@ -94,17 +92,6 @@ export class PakImageProxyController {
     if (drama) {
       const url = drama.posterImagebanId === imageId ? drama.posterUrl : drama.backdropUrl;
       if (url) { this.cacheUrl(imageId, url); return url; }
-    }
-
-    const episode = await this.episodeRepo
-      .createQueryBuilder('e')
-      .select(['e.thumbnailUrl', 'e.thumbnailImagebanId'])
-      .where('e.thumbnailImagebanId = :id', { id: imageId })
-      .getOne();
-
-    if (episode?.thumbnailUrl) {
-      this.cacheUrl(imageId, episode.thumbnailUrl);
-      return episode.thumbnailUrl;
     }
 
     return null;

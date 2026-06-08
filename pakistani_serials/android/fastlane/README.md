@@ -23,6 +23,14 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 Build release AAB and upload to Play Store production
 
+### android deploy_firebase
+
+```sh
+[bundle exec] fastlane android deploy_firebase
+```
+
+Build APK and upload to Firebase App Distribution (main group)
+
 ### android deploy_internal
 
 ```sh

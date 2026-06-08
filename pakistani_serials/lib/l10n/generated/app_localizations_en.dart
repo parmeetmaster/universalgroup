@@ -33,6 +33,18 @@ class SEn extends S {
   String get homeTop10Today => 'Top 10 in Pakistan Today';
 
   @override
+  String get homeCompleted => 'Series Completed';
+
+  @override
+  String get homeLatestReleases => 'Latest Releases';
+
+  @override
+  String get homeNewSerials => 'New on Pakistani Serials';
+
+  @override
+  String get homeTrendingWeek => 'Trending This Week';
+
+  @override
   String get homeFeatured => 'FEATURED';
 
   @override

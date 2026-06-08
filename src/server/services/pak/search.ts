@@ -19,7 +19,7 @@ export async function search(q: string) {
     ),
     query(
       "pak",
-      `SELECT e.id, e.title, e.number, e.thumbnail_url, e.season_id,
+      `SELECT e.id, e.title, e.number, e.season_id,
               d.title AS drama_title, d.slug AS drama_slug, s.number AS season_number
        FROM episodes e
        JOIN dramas d ON d.id = e.drama_id

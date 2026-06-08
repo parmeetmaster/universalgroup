@@ -33,6 +33,18 @@ class SHi extends S {
   String get homeTop10Today => 'आज के टॉप 10 ड्रामे';
 
   @override
+  String get homeCompleted => 'Series Completed';
+
+  @override
+  String get homeLatestReleases => 'Latest Releases';
+
+  @override
+  String get homeNewSerials => 'New on Pakistani Serials';
+
+  @override
+  String get homeTrendingWeek => 'Trending This Week';
+
+  @override
   String get homeFeatured => 'खास';
 
   @override

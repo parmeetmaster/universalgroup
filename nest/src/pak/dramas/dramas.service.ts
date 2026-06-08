@@ -4,7 +4,6 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Drama } from '../entities/drama.entity';
 import { Episode } from '../entities/episode.entity';
 import { HomeRail } from '../entities/home-rail.entity';
-import { DramaStatusEnum } from '../entities/enums';
 import { ListDramasDto } from './dto/list-dramas.dto';
 import { Paginated } from '../common/pagination.dto';
 
@@ -43,6 +42,25 @@ export class PakDramasService {
     const cached = this.getCached(cacheKey);
     if (cached) return cached;
 
+    // Date-based rails: paginate over drama IDs by episode air-date aggregate.
+    // (TypeORM can't combine take/skip + leftJoinAndSelect + orderBy on a joined
+    // subquery column, so we page the IDs in raw SQL, then hydrate with genres.)
+    if (railId === 'latest-releases' || railId === 'new-dramas' || railId === 'completed') {
+      const opts =
+        railId === 'new-dramas'
+          ? { agg: 'MIN' as const, order: 'DESC' as const }
+          : railId === 'completed'
+            ? {
+                agg: 'MAX' as const,
+                order: 'DESC' as const,
+                having: 'MAX(e.air_date) < (NOW() - INTERVAL 30 DAY)',
+              }
+            : { agg: 'MAX' as const, order: 'DESC' as const };
+      const result = await this.paginateByEpisodeAggregate(opts, genre, page, limit);
+      this.setCache(cacheKey, result);
+      return result;
+    }
+
     let qb = this.repo
       .createQueryBuilder('d')
       .leftJoinAndSelect('d.genres', 'g')
@@ -59,32 +77,12 @@ export class PakDramasService {
         qb = qb.orderBy('d.totalLikes', 'DESC').addOrderBy('d.totalEpisodes', 'DESC');
         break;
 
-      case 'latest-releases': {
-        const subQuery = this.episodeRepo
-          .createQueryBuilder('e')
-          .select('e.drama_id', 'drama_id')
-          .addSelect('MAX(COALESCE(e.air_date, e.created_at))', 'last_ep')
-          .groupBy('e.drama_id')
-          .getQuery();
-
-        qb = qb
-          .innerJoin(`(${subQuery})`, 'le', 'le.drama_id = d.id')
-          .orderBy('le.last_ep', 'DESC');
-        break;
-      }
-
-      case 'new-dramas':
-        qb = qb.orderBy('d.publishedAt', 'DESC').addOrderBy('d.createdAt', 'DESC');
+      case 'top10':
+        qb = qb.orderBy('d.allTimeViews', 'DESC').addOrderBy('d.totalLikes', 'DESC');
         break;
 
-      case 'monthly-popular':
-        qb = qb.orderBy('d.monthlyViews', 'DESC').addOrderBy('d.totalLikes', 'DESC');
-        break;
-
-      case 'completed':
-        qb = qb
-          .andWhere('d.status = :status', { status: DramaStatusEnum.COMPLETED })
-          .orderBy('d.updatedAt', 'DESC');
+      case 'trending':
+        qb = qb.orderBy('d.weekViews', 'DESC').addOrderBy('d.totalLikes', 'DESC');
         break;
 
       default: {
@@ -106,6 +104,60 @@ export class PakDramasService {
 
     this.setCache(cacheKey, result);
     return result;
+  }
+
+  // Pages drama IDs by an episode air-date aggregate (MIN/MAX), then hydrates
+  // the page with genres in row order. Used by date-based rails so pagination
+  // + ordering stay correct without TypeORM's join/DISTINCT limitations.
+  private async paginateByEpisodeAggregate(
+    opts: { agg: 'MIN' | 'MAX'; order: 'ASC' | 'DESC'; having?: string },
+    genre: string | undefined,
+    page: number,
+    limit: number,
+  ): Promise<Paginated<Drama>> {
+    const offset = (page - 1) * limit;
+    const genreJoin = genre
+      ? 'JOIN drama_genres dg ON dg.drama_id = d.id JOIN genres gf ON gf.id = dg.genre_id AND gf.slug = ?'
+      : '';
+    const params: (string | number)[] = genre ? [genre] : [];
+    const having = opts.having ? `HAVING ${opts.having}` : '';
+
+    const grouped = `
+      FROM episodes e
+      JOIN dramas d ON d.id = e.drama_id AND d.is_published = 1 AND d.deleted_at IS NULL
+        AND d.poster_url IS NOT NULL
+      ${genreJoin}
+      WHERE e.air_date IS NOT NULL
+      GROUP BY e.drama_id
+      ${having}`;
+
+    const rows: { drama_id: string }[] = await this.episodeRepo.query(
+      `SELECT e.drama_id, ${opts.agg}(e.air_date) AS last_ep ${grouped}
+       ORDER BY last_ep ${opts.order}
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+    );
+
+    const countRows: { cnt: number }[] = await this.episodeRepo.query(
+      `SELECT COUNT(*) AS cnt FROM (SELECT e.drama_id ${grouped}) t`,
+      params,
+    );
+    const total = Number(countRows[0]?.cnt ?? 0);
+
+    const ids = rows.map((r) => r.drama_id);
+    if (ids.length === 0) return { data: [], meta: { page, limit, total } };
+
+    const dramas = await this.repo
+      .createQueryBuilder('d')
+      .leftJoinAndSelect('d.genres', 'g')
+      .whereInIds(ids)
+      .getMany();
+    const dramaMap = new Map(dramas.map((d) => [d.id, d]));
+    const data = ids
+      .map((id) => dramaMap.get(id))
+      .filter(Boolean) as Drama[];
+
+    return { data, meta: { page, limit, total } };
   }
 
   async list(dto: ListDramasDto): Promise<Paginated<Drama>> {

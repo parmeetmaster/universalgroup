@@ -23,15 +23,7 @@ export class CreateEpisodeDto {
   @IsOptional() @IsString()
   synopsis?: string;
 
-  @ApiPropertyOptional({ default: 0 })
-  @IsOptional() @IsInt() @Min(0)
-  durationSeconds?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional() @IsUrl()
-  thumbnailUrl?: string;
-
-  @ApiPropertyOptional({ description: 'YYYY-MM-DD' })
+  @ApiPropertyOptional({ description: 'ISO 8601 datetime, e.g. 2026-06-06T10:30:00Z' })
   @IsOptional() @IsDateString()
   airDate?: string;
 

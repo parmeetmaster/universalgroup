@@ -149,6 +149,30 @@ abstract class S {
   /// **'Top 10 in Pakistan Today'**
   String get homeTop10Today;
 
+  /// No description provided for @homeCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Series Completed'**
+  String get homeCompleted;
+
+  /// No description provided for @homeLatestReleases.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest Releases'**
+  String get homeLatestReleases;
+
+  /// No description provided for @homeNewSerials.
+  ///
+  /// In en, this message translates to:
+  /// **'New on Pakistani Serials'**
+  String get homeNewSerials;
+
+  /// No description provided for @homeTrendingWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending This Week'**
+  String get homeTrendingWeek;
+
   /// No description provided for @homeFeatured.
   ///
   /// In en, this message translates to:

@@ -45,7 +45,8 @@ class ApiService {
       'page': page,
       'limit': limit,
     });
-    final data = unwrap<List<dynamic>>(res).cast<Map<String, dynamic>>();
+    final body = unwrap<Map<String, dynamic>>(res);
+    final data = (body['data'] as List).cast<Map<String, dynamic>>();
     return data.map(ContentModel.fromJson).toList();
   }
 

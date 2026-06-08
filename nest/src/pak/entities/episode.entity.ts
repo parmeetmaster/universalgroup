@@ -43,26 +43,16 @@ export class Episode {
   @Column({ type: 'text', nullable: true })
   synopsis!: string | null;
 
-  @Column({ name: 'duration_seconds', type: 'int', default: 0 })
-  durationSeconds!: number;
 
-  @Column({ name: 'thumbnail_url', type: 'varchar', length: 500, nullable: true })
-  thumbnailUrl!: string | null;
+  // Virtual field (not in DB) — kept for API backward compatibility
+  durationSeconds: number = 0;
 
-  @Column({ name: 'air_date', type: 'date', nullable: true })
-  airDate!: string | null;
+  @Column({ name: 'air_date', type: 'datetime', nullable: true })
+  airDate!: Date | null;
 
   @Column({ name: 'source_url', type: 'varchar', length: 500, nullable: true })
   sourceUrl!: string | null;
 
-  @Column({ name: 'thumbnail_original_url', type: 'varchar', length: 500, nullable: true })
-  thumbnailOriginalUrl!: string | null;
-
-  @Column({ name: 'thumbnail_imageban_id', type: 'varchar', length: 20, nullable: true })
-  thumbnailImagebanId!: string | null;
-
-  @Column({ name: 'thumbnail_hosted', type: 'tinyint', width: 1, default: 0 })
-  thumbnailHosted!: number;
 
   @Column({ name: 'notification_sent', type: 'tinyint', width: 1, default: 0 })
   notificationSent!: number;

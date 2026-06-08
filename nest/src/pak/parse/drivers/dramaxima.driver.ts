@@ -258,9 +258,9 @@ export class PakDramaximaDriver {
       for (const link of links) {
         try {
           let ep = byNum.get(link.number);
-          const airDate = link.lastmod
-            ? link.lastmod.toISOString().slice(0, 10)
-            : null;
+          // Source-provided air date (sitemap lastmod). For a brand-new episode
+          // fall back to now, since the poller only discovers it once it aired.
+          const sourceAirDate = link.lastmod ?? null;
           if (!ep) {
             ep = await this.episodeRepo.save(
               this.episodeRepo.create({
@@ -269,7 +269,7 @@ export class PakDramaximaDriver {
                 number: link.number,
                 title: `Episode ${link.number}`,
                 sourceUrl: link.url,
-                airDate: airDate,
+                airDate: sourceAirDate ?? new Date(),
                 isPublished: 1,
               }),
             );
@@ -280,8 +280,8 @@ export class PakDramaximaDriver {
               ep.sourceUrl = link.url;
               changed = true;
             }
-            if (!ep.airDate && airDate) {
-              ep.airDate = airDate;
+            if (!ep.airDate && sourceAirDate) {
+              ep.airDate = sourceAirDate;
               changed = true;
             }
             if (changed) await this.episodeRepo.save(ep);
@@ -296,7 +296,9 @@ export class PakDramaximaDriver {
         }
       }
 
-      await this.fillGaps(drama.id, season.id);
+      // Gap-filling disabled: creates bogus placeholder episodes when
+      // DramaXima has outlier episode numbers (e.g., ep 280 when only 50 exist)
+      // await this.fillGaps(drama.id, season.id);
 
       await this.dramaRepo.update(drama.id, {
         totalEpisodes: await this.episodeRepo.count({ where: { dramaId: drama.id } }),

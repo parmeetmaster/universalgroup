@@ -67,7 +67,9 @@ export class DramaEngagementService {
       .update(Drama)
       .set({
         dailyViews: () => 'daily_views + 1',
+        weekViews: () => 'week_views + 1',
         monthlyViews: () => 'monthly_views + 1',
+        allTimeViews: () => 'all_time_views + 1',
       })
       .where('slug = :slug AND is_published = 1', { slug })
       .execute();
@@ -89,19 +91,20 @@ export class DramaEngagementService {
     this.logger.log('Daily views reset');
   }
 
-  // ── Cron: reset monthly views on 1st of month ──
+  // ── Cron: reset week views every Monday midnight UTC ──
 
-  @Cron('0 0 1 * *')
-  async resetMonthlyViews() {
+  @Cron('0 0 * * 1')
+  async resetWeekViews() {
     const instance = process.env.NODE_APP_INSTANCE;
     if (instance && instance !== '0') return;
 
     await this.dramaRepo
       .createQueryBuilder()
       .update(Drama)
-      .set({ monthlyViews: 0 })
-      .where('monthly_views > 0')
+      .set({ weekViews: 0 })
+      .where('week_views > 0')
       .execute();
-    this.logger.log('Monthly views reset');
+    this.logger.log('Week views reset');
   }
+
 }

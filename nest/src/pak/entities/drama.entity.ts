@@ -79,8 +79,14 @@ export class Drama {
   @Column({ name: 'daily_views', type: 'int', default: 0 })
   dailyViews!: number;
 
+  @Column({ name: 'week_views', type: 'int', default: 0 })
+  weekViews!: number;
+
   @Column({ name: 'monthly_views', type: 'int', default: 0 })
   monthlyViews!: number;
+
+  @Column({ name: 'all_time_views', type: 'int', default: 0 })
+  allTimeViews!: number;
 
   @Column({ type: 'varchar', length: 8, default: 'ur' })
   language!: string;

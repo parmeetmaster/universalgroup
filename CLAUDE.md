@@ -119,8 +119,8 @@ Flutter app (Dart). Netflix-style OTT app for Pakistani dramas.
 - **Flutter 3.41.5** (via fvm)
 - **Architecture:** Clean + BLoC (`flutter_bloc`, `get_it` + `injectable`, `go_router`)
 - **Design:** Dark theme, emerald accent `#10B981`, Plus Jakarta Sans + Noto Nastaliq Urdu
-- **API base:** `--dart-define=API_BASE_URL=http://pak-ott.animekill.com/v1`
-- **Build:** `fvm flutter build apk --release --dart-define=API_BASE_URL=http://pak-ott.animekill.com/v1`
+- **API base:** `https://global.animekill.com/api/pakistani-serials` (selected by `ENV` in `lib/core/config/env.dart`; default `prod`). App runs on global.animekill.com only.
+- **Build:** `fvm flutter build apk --release`
 - **Key dirs:** `lib/features/<feature>/{data,domain,presentation}/`, `lib/core/`
 - Has its own `CLAUDE.md` at `pakistani_serials/CLAUDE.md` with full architecture details
 

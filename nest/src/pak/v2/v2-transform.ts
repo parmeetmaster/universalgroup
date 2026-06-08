@@ -21,19 +21,18 @@ export function transformDramaImages(drama: any): any {
   delete result.parseFailureCount;
   delete result.parseFrozenUntil;
   delete result.dailyViews;
+  delete result.weekViews;
   delete result.monthlyViews;
+  delete result.allTimeViews;
   return result;
 }
 
 export function transformEpisodeImages(episode: any, drama?: any): any {
   if (!episode) return episode;
   const result = { ...episode };
-  result.thumbnailUrl = toProxyUrl(episode.thumbnailImagebanId, episode.thumbnailUrl)
-    || toProxyUrl(drama?.posterImagebanId, drama?.posterUrl)
-    || null;
-  delete result.thumbnailOriginalUrl;
-  delete result.thumbnailImagebanId;
-  delete result.thumbnailHosted;
+  // Use drama poster as episode thumbnail
+  result.thumbnailUrl = toProxyUrl(drama?.posterImagebanId, drama?.posterUrl) || null;
+  result.durationSeconds = result.durationSeconds ?? 0;
   delete result.notificationSent;
   delete result.isPlaceholder;
   delete result.sourceUrl;

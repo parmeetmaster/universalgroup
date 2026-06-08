@@ -108,6 +108,12 @@ export class PakParseService {
     if (!res.affected) throw new NotFoundException('Video not found');
   }
 
+  // --- backfill ---
+
+  async countNullAirDates(): Promise<number> {
+    return this.episodeRepo.count({ where: { airDate: null as any } });
+  }
+
   // --- parse_runs ---
 
   listRuns(limit = 50): Promise<ParseRun[]> {

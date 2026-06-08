@@ -99,6 +99,22 @@ export class PakParseController {
     return this.orchestrator.runDiscovery();
   }
 
+  @Post('backfill-air-dates')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Re-import all dramas from sitemap to fill NULL air_dates from sitemap lastmod',
+  })
+  async backfillAirDates() {
+    const importResults = await this.dramaxima.importAll();
+    const stillNull = await this.svc.countNullAirDates();
+
+    return {
+      dramasProcessed: importResults.length,
+      totalImported: importResults.reduce((s, r) => s + r.imported, 0),
+      remainingNullAirDates: stillNull,
+    };
+  }
+
   // --- sources ---
 
   @Get('sources')

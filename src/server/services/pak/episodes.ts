@@ -9,8 +9,6 @@ interface EpisodeRow {
   number: number;
   title: string | null;
   synopsis: string | null;
-  duration_seconds: number | null;
-  thumbnail_url: string | null;
   air_date: string | null;
   source_url: string | null;
   is_published: number;
@@ -50,8 +48,6 @@ interface CreateEpisodeData {
   number: number;
   title?: string;
   synopsis?: string;
-  duration_seconds?: number;
-  thumbnail_url?: string;
   air_date?: string;
   source_url?: string;
   is_published?: boolean;
@@ -142,16 +138,14 @@ export async function deleteSeason(id: number) {
 export async function createEpisode(data: CreateEpisodeData) {
   const result = (await query(
     "pak",
-    `INSERT INTO episodes (drama_id, season_id, number, title, synopsis, duration_seconds, thumbnail_url, air_date, source_url, is_published)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO episodes (drama_id, season_id, number, title, synopsis, air_date, source_url, is_published)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.drama_id,
       data.season_id,
       data.number,
       data.title ?? null,
       data.synopsis ?? null,
-      data.duration_seconds ?? null,
-      data.thumbnail_url ?? null,
       data.air_date ?? null,
       data.source_url ?? null,
       data.is_published ? 1 : 0,

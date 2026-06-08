@@ -9,6 +9,7 @@ import { Season } from '../entities/season.entity';
 import { PakParseController } from './parse.controller';
 import { PakParseService } from './parse.service';
 import { PakDramaximaDriver } from './drivers/dramaxima.driver';
+import { PakDramaSpiceDriver } from './drivers/dramaspice.driver';
 import { PakParseSchedulerService } from './scheduler/parse-scheduler.service';
 import { PakParseOrchestratorService } from './scheduler/parse-orchestrator.service';
 import { PakDistributedLockService } from './scheduler/distributed-lock.service';
@@ -31,11 +32,12 @@ import { PakImageModule } from '../services/pak-image.module';
   providers: [
     PakParseService,
     PakDramaximaDriver,
+    PakDramaSpiceDriver,
     PakParseSchedulerService,
     PakParseOrchestratorService,
     PakDistributedLockService,
     PakAdminTokenGuard,
   ],
-  exports: [PakParseService, PakDramaximaDriver, PakParseOrchestratorService],
+  exports: [PakParseService, PakDramaximaDriver, PakDramaSpiceDriver, PakParseOrchestratorService],
 })
 export class PakParseModule {}
