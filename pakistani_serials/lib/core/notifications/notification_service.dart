@@ -1,5 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -33,6 +34,23 @@ class NotificationService {
     }
 
     FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+
+    // When user taps a notification → cancel all other notifications
+    FirebaseMessaging.onMessageOpenedApp.listen((_) => cancelAllNotifications());
+    // Check if app was opened from a terminated state via notification
+    final initial = await messaging.getInitialMessage();
+    if (initial != null) cancelAllNotifications();
+  }
+
+  /// Cancel all notifications from the shade when one is tapped
+  void cancelAllNotifications() {
+    try {
+      // Use Android NotificationManager via platform channel
+      const channel = MethodChannel('com.pakistanidrama.serial/notifications');
+      channel.invokeMethod('cancelAll');
+    } catch (e) {
+      debugPrint('Failed to cancel notifications: $e');
+    }
   }
 
   Future<void> subscribeToDrama(String slug) async {

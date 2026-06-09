@@ -16,6 +16,18 @@ class MainActivity : FlutterActivity() {
             ListTileNativeAdFactory(this)
         )
 
+        // Notification cancel channel — dismiss all notifications when one is tapped
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.pakistanidrama.serial/notifications")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "cancelAll") {
+                    val nm = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+                    nm.cancelAll()
+                    result.success(null)
+                } else {
+                    result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.pakistanidrama.serial/cast")
             .setMethodCallHandler { call, result ->
                 if (call.method == "openCastDialog") {
