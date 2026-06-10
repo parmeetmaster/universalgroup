@@ -9,10 +9,13 @@ const { SocksProxyAgent } = require('socks-proxy-agent');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { HttpsProxyAgent } = require('https-proxy-agent');
 
+// HTTPS-only on purpose: the app browses HTTPS sites, which require the proxy
+// to support CONNECT tunneling. A proxy that only forwards plain HTTP GET would
+// pass an http:// test but fail in the app, so we never mark such proxies alive.
 const TEST_URLS = [
-  'https://httpbin.org/ip',
+  'https://www.gstatic.com/generate_204',
   'https://api.ipify.org?format=json',
-  'http://ip-api.com/json',
+  'https://httpbin.org/ip',
 ];
 
 const VALIDATE_TIMEOUT = 10000;
@@ -28,6 +31,10 @@ export class ProxyValidatorService {
     private readonly proxyRepo: Repository<ProxyEntity>,
   ) {}
 
+  /**
+   * Discovery pass: tests the oldest-checked UNCHECKED/DEAD/ACTIVE proxies to
+   * find new alive ones and replenish the pool. Runs less frequently.
+   */
   async validateAll(): Promise<{ tested: number; alive: number; dead: number }> {
     const proxies = await this.proxyRepo
       .createQueryBuilder('p')
@@ -39,12 +46,36 @@ export class ProxyValidatorService {
       .take(500)
       .getMany();
 
+    return this.runValidation(proxies, 'discovery');
+  }
+
+  /**
+   * Hot-pool pass: re-tests proxies currently marked ACTIVE so the served pool
+   * stays genuinely alive. The active set is small, so this runs frequently
+   * (every few minutes) — this is what keeps the app's VPN reliable: a proxy
+   * served to the app was confirmed alive minutes ago, not hours/days.
+   */
+  async revalidateActive(): Promise<{ tested: number; alive: number; dead: number }> {
+    const proxies = await this.proxyRepo
+      .createQueryBuilder('p')
+      .where('p.status = :status', { status: ProxyStatus.ACTIVE })
+      .orderBy('p.lastCheckedAt', 'ASC')
+      .take(500)
+      .getMany();
+
+    return this.runValidation(proxies, 'hot-pool');
+  }
+
+  private async runValidation(
+    proxies: ProxyEntity[],
+    label: string,
+  ): Promise<{ tested: number; alive: number; dead: number }> {
     if (proxies.length === 0) {
-      this.logger.log('No proxies to validate');
+      this.logger.log(`No proxies to validate (${label})`);
       return { tested: 0, alive: 0, dead: 0 };
     }
 
-    this.logger.log(`Validating ${proxies.length} proxies...`);
+    this.logger.log(`Validating ${proxies.length} proxies (${label})...`);
 
     let alive = 0;
     let dead = 0;
@@ -81,10 +112,9 @@ export class ProxyValidatorService {
       }
 
       await this.proxyRepo.save(updates);
-      this.logger.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(proxies.length / BATCH_SIZE)} done`);
     }
 
-    this.logger.log(`Validation done: ${alive} alive, ${dead} dead out of ${proxies.length}`);
+    this.logger.log(`Validation done (${label}): ${alive} alive, ${dead} dead out of ${proxies.length}`);
     return { tested: proxies.length, alive, dead };
   }
 

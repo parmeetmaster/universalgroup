@@ -50,14 +50,14 @@ export class ProxyCronService implements OnModuleInit {
     }
   }
 
-  // Validate proxies every 30 minutes
-  @Cron('*/30 * * * *')
+  // Discovery: find new alive proxies every 15 minutes
+  @Cron('*/15 * * * *')
   async validateProxies() {
     if (!this.ready) return;
     const instance = process.env.NODE_APP_INSTANCE;
     if (instance && instance !== '0') return;
 
-    this.logger.log('Cron: validating proxies...');
+    this.logger.log('Cron: validating proxies (discovery)...');
     try {
       const result = await this.validator.validateAll();
       this.logger.log(
@@ -65,6 +65,30 @@ export class ProxyCronService implements OnModuleInit {
       );
     } catch (err) {
       this.logger.error(`Cron validate failed: ${(err as Error).message}`);
+    }
+  }
+
+  // Hot pool: re-verify currently-active proxies every 5 minutes so the proxies
+  // served to the app are always confirmed-alive within minutes. Guarded so it
+  // never overlaps itself if a run is slow.
+  private revalidating = false;
+
+  @Cron('*/5 * * * *')
+  async revalidateActiveProxies() {
+    if (!this.ready || this.revalidating) return;
+    const instance = process.env.NODE_APP_INSTANCE;
+    if (instance && instance !== '0') return;
+
+    this.revalidating = true;
+    try {
+      const result = await this.validator.revalidateActive();
+      this.logger.log(
+        `Cron hot-pool: ${result.tested} tested, ${result.alive} still alive, ${result.dead} dropped`,
+      );
+    } catch (err) {
+      this.logger.error(`Cron hot-pool failed: ${(err as Error).message}`);
+    } finally {
+      this.revalidating = false;
     }
   }
 

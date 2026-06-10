@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, IsNull } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Drama } from '../entities/drama.entity';
+import { PakImageService } from './pak-image.service';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
@@ -51,7 +52,57 @@ export class PosterHealthService {
   constructor(
     @InjectRepository(Drama, 'pak')
     private readonly dramaRepo: Repository<Drama>,
+    private readonly imageService: PakImageService,
   ) {}
+
+  /**
+   * Ensure a drama has a working poster, hosted on ImageBan.
+   * Used when a new drama is discovered by the cron so the photo never goes missing.
+   * - Keeps the current poster if it is already accessible and ImageBan-hosted.
+   * - Otherwise finds a replacement, uploads it to ImageBan, and persists every
+   *   poster/backdrop field (url, original url, imageban id, hosted flag).
+   */
+  async ensurePosterHosted(
+    dramaId: string,
+    title: string,
+    currentPosterUrl?: string | null,
+  ): Promise<boolean> {
+    // Pick a usable source image: keep the current one if it still loads,
+    // otherwise scrape a replacement from known sources.
+    let sourceUrl: string | null = null;
+    if (currentPosterUrl && (await this.isUrlAccessible(currentPosterUrl))) {
+      sourceUrl = currentPosterUrl;
+    } else {
+      sourceUrl = await this.findReplacementPoster(title);
+    }
+
+    if (!sourceUrl) {
+      this.logger.warn(`No poster found for "${title}" (id=${dramaId})`);
+      return false;
+    }
+
+    // Push the image onto ImageBan so it survives the source site going down.
+    const hosted = await this.imageService.uploadByUrl(sourceUrl);
+    const finalUrl = hosted?.imagebanUrl ?? sourceUrl;
+    const imagebanId = hosted?.imagebanId ?? null;
+    const hostedFlag = hosted ? 1 : 0;
+
+    await this.dramaRepo.update(dramaId, {
+      posterUrl: finalUrl,
+      backdropUrl: finalUrl,
+      posterOriginalUrl: sourceUrl,
+      backdropOriginalUrl: sourceUrl,
+      posterImagebanId: imagebanId,
+      backdropImagebanId: imagebanId,
+      posterHosted: hostedFlag,
+      backdropHosted: hostedFlag,
+    });
+
+    this.logger.log(
+      `Poster set for "${title}" (id=${dramaId}) → ${finalUrl.substring(0, 80)} (imageban=${hostedFlag})`,
+    );
+    return true;
+  }
 
   /** Daily at 4:30 AM — check all poster URLs, fix broken ones */
   @Cron('30 4 * * *', { name: 'pak-poster-health' })
@@ -97,28 +148,13 @@ export class PosterHealthService {
         `Broken image for "${drama.title}" (id=${drama.id}) — poster: ${posterBroken}, backdrop: ${backdropBroken}`,
       );
 
-      const newUrl = await this.findReplacementPoster(drama.title);
-      if (!newUrl) {
+      // Scrape a replacement and host it on ImageBan in one step.
+      const fixed = await this.ensurePosterHosted(drama.id, drama.title);
+      if (fixed) {
+        result.fixed++;
+      } else {
         result.failed.push(drama.title);
-        this.logger.warn(`No replacement found for "${drama.title}"`);
-        continue;
       }
-
-      const update: Partial<Drama> = {};
-      if (posterBroken) {
-        update.posterUrl = newUrl;
-        update.posterOriginalUrl = newUrl;
-      }
-      if (backdropBroken) {
-        update.backdropUrl = newUrl;
-        update.backdropOriginalUrl = newUrl;
-      }
-
-      await this.dramaRepo.update(drama.id, update);
-      result.fixed++;
-      this.logger.log(
-        `Fixed "${drama.title}" (id=${drama.id}) → ${newUrl.substring(0, 80)}...`,
-      );
 
       // Small delay between fixes to be polite to source sites
       await this.delay(1000);

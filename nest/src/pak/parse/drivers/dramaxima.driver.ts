@@ -112,25 +112,11 @@ export class PakDramaximaDriver {
           }),
         );
 
-        // Verify poster is accessible; if broken, find a replacement
+        // Ensure the poster loads and is hosted on ImageBan so it never goes missing
         try {
-          const needsFix = posterUrl
-            ? !(await this.posterHealth.isUrlAccessible(posterUrl))
-            : true;
-          if (needsFix) {
-            const replacement = await this.posterHealth.findReplacementPoster(title);
-            if (replacement) {
-              await this.dramaRepo.update(drama.id, {
-                posterUrl: replacement,
-                posterOriginalUrl: replacement,
-                backdropUrl: replacement,
-                backdropOriginalUrl: replacement,
-              });
-              this.logger.log(`Replaced broken poster for ${title} → ${replacement.substring(0, 80)}`);
-            }
-          }
+          await this.posterHealth.ensurePosterHosted(drama.id, title, posterUrl);
         } catch (posterErr) {
-          this.logger.warn(`Poster check for ${slug} failed: ${(posterErr as Error).message}`);
+          this.logger.warn(`Poster hosting for ${slug} failed: ${(posterErr as Error).message}`);
         }
 
         try {

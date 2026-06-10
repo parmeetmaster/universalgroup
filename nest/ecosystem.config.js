@@ -36,6 +36,9 @@ const common = {
   ANIMEKILL_APP_DB_PASS: 'asd1236547899',
   ANIMEKILL_APP_DB_NAME: 'animekill_app',
 
+  // ImageBan (Pakistani poster hosting) — shared key from anime backend
+  IMAGEBAN_SECRET_KEY: 'HcllsPjSpOCGg9DMHzQaDeT3IXO2LAStS4c',
+
   // Admin
   ADMIN_TOKEN: '7bd153c10371970a58dd9f0a84571d00413cac7387556d4d9f6aca0e43022e84',
   SEED_LOGIN_EMAIL: 'parmeets834@gmail.com',

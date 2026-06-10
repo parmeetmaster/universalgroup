@@ -10,6 +10,7 @@ import { ErrorReportEntity } from './reports/entities/error-report.entity';
 import { DeviceTokenEntity } from './devices/entities/device-token.entity';
 import { DeviceGraceEntity } from './devices/entities/device-grace.entity';
 import { ProxyEntity } from './proxy/entities/proxy.entity';
+import { VpnConfigEntity } from './proxy/entities/vpn-config.entity';
 import { SiteVisitEntity } from './analytics/entities/site-visit.entity';
 import { ScraperModule } from './scraper/scraper.module';
 import { DiffModule } from './diff/diff.module';
@@ -48,6 +49,7 @@ import { AnimeController } from './anime.controller';
           DeviceTokenEntity,
           DeviceGraceEntity,
           ProxyEntity,
+          VpnConfigEntity,
           SiteVisitEntity,
         ],
         synchronize: true,

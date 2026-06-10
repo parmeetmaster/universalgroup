@@ -5,6 +5,9 @@ export interface ImageBanUploadResult {
   imagebanId: string;
 }
 
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
 @Injectable()
 export class PakImageService {
   private readonly logger = new Logger(PakImageService.name);
@@ -19,10 +22,18 @@ export class PakImageService {
     }
     if (this.isImageBanUrl(sourceUrl)) return null;
 
+    // ImageBan's URL field is unreliable; download the image and upload the
+    // raw bytes as a base64 `image` field (same approach as the anime backend).
+    const base64 = await this.downloadAsBase64(sourceUrl);
+    if (!base64) {
+      this.logger.warn(`Could not download image: ${sourceUrl}`);
+      return null;
+    }
+
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const formData = new FormData();
-        formData.append('url', sourceUrl);
+        formData.append('image', base64);
         if (this.albumId) formData.append('album', this.albumId);
 
         const res = await fetch(this.apiUrl, {
@@ -48,15 +59,15 @@ export class PakImageService {
 
         const json = (await res.json()) as {
           success: boolean;
-          data?: Array<{ id: string; link: string }>;
+          data?: { id: string; link: string };
         };
 
-        if (!json.success || !json.data?.length) {
+        if (!json.success || !json.data?.id || !json.data?.link) {
           this.logger.error(`ImageBan response invalid: ${JSON.stringify(json)}`);
           return null;
         }
 
-        const { id, link } = json.data[0];
+        const { id, link } = json.data;
         this.logger.log(`Uploaded to ImageBan: ${id} -> ${link}`);
 
         const verified = await this.verifyUrl(link);
@@ -77,6 +88,21 @@ export class PakImageService {
       }
     }
     return null;
+  }
+
+  private async downloadAsBase64(url: string): Promise<string | null> {
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': UA },
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!res.ok) return null;
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length < 1000) return null;
+      return buf.toString('base64');
+    } catch {
+      return null;
+    }
   }
 
   async verifyUrl(url: string): Promise<boolean> {

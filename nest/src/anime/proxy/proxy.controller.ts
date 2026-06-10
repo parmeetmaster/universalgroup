@@ -21,7 +21,7 @@ export class ProxyController {
   @ApiOperation({
     summary: 'Get working proxies',
     description:
-      'Returns a list of validated, active proxies sorted by speed. Supports filtering by protocol, country, and max speed.',
+      'Returns active proxies confirmed alive within the last 6 hours, ordered by most-recently-validated first then by speed. Falls back to all active proxies (by recency) if none were validated recently. Supports filtering by protocol, country, and max speed.',
   })
   @ApiQuery({
     name: 'protocol',
@@ -94,6 +94,18 @@ export class ProxyController {
   @ApiResponse({ status: 200, description: 'Validation results' })
   async triggerValidate() {
     const result = await this.validator.validateAll();
+    return { success: true, ...result };
+  }
+
+  @Post('revalidate-active')
+  @ApiOperation({
+    summary: 'Re-validate the active hot pool',
+    description:
+      'Re-tests all proxies currently marked active and drops any that have died. Runs automatically every 5 minutes; this endpoint triggers it on demand.',
+  })
+  @ApiResponse({ status: 200, description: 'Hot-pool revalidation results' })
+  async triggerRevalidateActive() {
+    const result = await this.validator.revalidateActive();
     return { success: true, ...result };
   }
 

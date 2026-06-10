@@ -6,6 +6,7 @@ import { AviationModule } from './aviation/aviation.module';
 import { PakModule } from './pak/pak.module';
 import { AuthModule } from './auth/auth.module';
 import { MangaModule } from './manga/manga.module';
+import { FeedbackModule } from './common/feedback/feedback.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { MangaModule } from './manga/manga.module';
     PakModule,
     MangaModule,
     AuthModule,
+    FeedbackModule,
   ],
 })
 export class AppModule {}

@@ -5,6 +5,7 @@ import { promises as fs } from 'node:fs';
 import { EpisodeItem } from '../scraper/types';
 import { BlockedCountriesService } from './blocked-countries.service';
 import { CountriesRegistry } from './countries-registry.service';
+import { NotificationWindowService } from './notification-window.service';
 
 export const TOPIC_ALL = 'anime_new';
 export const topicForCountry = (cc: string) => `anime_new_${cc.toUpperCase()}`;
@@ -22,6 +23,7 @@ export class FcmService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly countries: CountriesRegistry,
     private readonly blocked: BlockedCountriesService,
+    private readonly window: NotificationWindowService,
   ) {}
 
   async onModuleInit() {
@@ -121,8 +123,18 @@ export class FcmService implements OnModuleInit {
 
   async publishEpisodeFanout(item: EpisodeItem, silent = false) {
     const allCountries = await this.countries.all();
-    const countryTopics = allCountries
-      .filter((cc) => !this.blocked.isBlocked(cc))
+    const eligible = allCountries.filter((cc) => !this.blocked.isBlocked(cc));
+
+    // Respect per-country delivery windows (e.g. IN only gets pushes 20:00-08:00 IST).
+    // Inside its window a country behaves like any other; outside, its topic is skipped.
+    const skippedByWindow = eligible.filter((cc) => !this.window.isWithinWindow(cc));
+    if (skippedByWindow.length > 0) {
+      this.logger.log(
+        `Skipping ${skippedByWindow.join(', ')} for ${item.url} — outside delivery window`,
+      );
+    }
+    const countryTopics = eligible
+      .filter((cc) => this.window.isWithinWindow(cc))
       .map(topicForCountry);
 
     const targets = [TOPIC_ALL, ...countryTopics];

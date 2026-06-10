@@ -5,6 +5,7 @@ import { Drama } from '../../entities/drama.entity';
 import { Season } from '../../entities/season.entity';
 import { Episode } from '../../entities/episode.entity';
 import { DramaStatusEnum } from '../../entities/enums';
+import { PosterHealthService } from '../../services/poster-health.service';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -37,6 +38,7 @@ export class PakDramaSpiceDriver {
     private readonly seasonRepo: Repository<Season>,
     @InjectRepository(Episode, 'pak')
     private readonly episodeRepo: Repository<Episode>,
+    private readonly posterHealth: PosterHealthService,
   ) {}
 
   async scanAndImport(): Promise<DramaSpiceScanResult> {
@@ -127,6 +129,16 @@ export class PakDramaSpiceDriver {
       drama = await this.dramaRepo.save(drama);
       this.logger.log(`Created drama: ${title} (${slug})`);
       newDramas++;
+
+      // Fetch a poster, host it on ImageBan, and persist it right away so the
+      // new serial never shows up without a photo.
+      try {
+        await this.posterHealth.ensurePosterHosted(drama.id, title);
+      } catch (err) {
+        this.logger.warn(
+          `Poster hosting for ${slug} failed: ${(err as Error).message}`,
+        );
+      }
     }
 
     // Ensure Season 1 exists

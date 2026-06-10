@@ -18,32 +18,53 @@ export class ProxyService {
     private readonly scraperService: ProxyScraperService,
   ) {}
 
+  // Only serve proxies confirmed alive within one full validation cycle.
+  // The validator re-checks 500 oldest proxies every 30 min; with the current
+  // pool size a full sweep takes a few hours, so a proxy marked ACTIVE days ago
+  // is very likely dead by now. Serving stale-actives is the main reason the
+  // app's VPN "turns on but doesn't work". 6h keeps the freshest actives only.
+  private static readonly FRESH_WINDOW_MS = 6 * 60 * 60 * 1000;
+
   async getWorkingProxies(opts?: {
     protocol?: ProxyProtocol;
     country?: string;
     limit?: number;
     maxSpeed?: number;
   }): Promise<ProxyEntity[]> {
-    const qb = this.proxyRepo
-      .createQueryBuilder('p')
-      .where('p.status = :status', { status: ProxyStatus.ACTIVE })
-      .orderBy('p.speed', 'ASC');
+    const buildQuery = (freshOnly: boolean) => {
+      const qb = this.proxyRepo
+        .createQueryBuilder('p')
+        .where('p.status = :status', { status: ProxyStatus.ACTIVE });
 
-    if (opts?.protocol) {
-      qb.andWhere('p.protocol = :protocol', { protocol: opts.protocol });
-    }
+      if (freshOnly) {
+        const freshCutoff = new Date(Date.now() - ProxyService.FRESH_WINDOW_MS);
+        qb.andWhere('p.lastCheckedAt >= :freshCutoff', { freshCutoff });
+      }
 
-    if (opts?.country) {
-      qb.andWhere('p.country = :country', { country: opts.country.toUpperCase() });
-    }
+      // Most recently confirmed-alive first, fastest among those next.
+      qb.orderBy('p.lastCheckedAt', 'DESC').addOrderBy('p.speed', 'ASC');
 
-    if (opts?.maxSpeed) {
-      qb.andWhere('p.speed <= :maxSpeed', { maxSpeed: opts.maxSpeed });
-    }
+      if (opts?.protocol) {
+        qb.andWhere('p.protocol = :protocol', { protocol: opts.protocol });
+      }
+      if (opts?.country) {
+        qb.andWhere('p.country = :country', {
+          country: opts.country.toUpperCase(),
+        });
+      }
+      if (opts?.maxSpeed) {
+        qb.andWhere('p.speed <= :maxSpeed', { maxSpeed: opts.maxSpeed });
+      }
 
-    qb.take(opts?.limit ?? 50);
+      qb.take(opts?.limit ?? 50);
+      return qb;
+    };
 
-    return qb.getMany();
+    // Prefer freshly-validated proxies; fall back to all actives (by recency)
+    // only if the fresh window is empty, so the endpoint never starves.
+    const fresh = await buildQuery(true).getMany();
+    if (fresh.length > 0) return fresh;
+    return buildQuery(false).getMany();
   }
 
   async getStats(): Promise<{
