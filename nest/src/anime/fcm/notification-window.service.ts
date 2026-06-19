@@ -23,9 +23,11 @@ interface DeliveryWindow {
 export class NotificationWindowService {
   private readonly logger = new Logger(NotificationWindowService.name);
 
-  private readonly windows: Record<string, DeliveryWindow> = {
-    IN: { tz: 'Asia/Kolkata', startHour: 20, endHour: 8 },
-  };
+  // No per-country delivery windows — every country receives new-episode pushes in
+  // real time, around the clock. (IN was previously restricted to 20:00–08:00 IST,
+  // which meant Indian users got NO notifications during the day; removed so they
+  // receive them anytime, like every other country.)
+  private readonly windows: Record<string, DeliveryWindow> = {};
 
   /**
    * Returns true if notifications are allowed for the country right now.

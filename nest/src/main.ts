@@ -47,7 +47,11 @@ export async function bootstrapNest(): Promise<NestExpressApplication> {
   const aviationDoc = { ...filterDocByPath(fullDoc, '/api/aviation-news'), info: { title: 'Aviation News API', description: 'Aviation news, AQI, flights, notifications, YouTube shorts', version: '1.0' } };
   SwaggerModule.setup('api/aviation-news/api-docs', app, aviationDoc, swaggerOpts);
 
-  // 4. Global — all APIs combined
+  // 4. Manga App — only /api/manga/* paths
+  const mangaDoc = { ...filterDocByPath(fullDoc, '/api/manga'), info: { title: 'Manga App API', description: 'Manga config + Asura new-chapter notifications', version: '1.0' } };
+  SwaggerModule.setup('api/manga-app/api-docs', app, mangaDoc, swaggerOpts);
+
+  // 5. Global — all APIs combined
   SwaggerModule.setup('api-docs', app, fullDoc, swaggerOpts);
 
   return app;

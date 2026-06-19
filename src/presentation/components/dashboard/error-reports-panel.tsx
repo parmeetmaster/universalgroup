@@ -34,6 +34,7 @@ interface Report {
   error_title: string; error_message: string; download_url: string;
   additional_info: string; status: "open" | "ack" | "closed";
   admin_notes: string; created_at: string; updated_at: string;
+  location: string | null;
 }
 
 interface ReportsResponse {
@@ -222,6 +223,9 @@ export function ErrorReportsPanel() {
                     <Text fontSize="xs" color="gray.500">{r.device_name}</Text>
                     <Text fontSize="xs" color="gray.400">v{r.app_version}</Text>
                     <Text fontSize="xs" color="gray.400">{new Date(r.created_at).toLocaleDateString()}</Text>
+                    {r.location && (
+                      <Text fontSize="xs" color="brand.500">📍 {r.location}</Text>
+                    )}
                   </HStack>
                 </Box>
                 <IconButton aria-label="Toggle details" icon={expanded.has(r.id) ? <MdExpandLess /> : <MdExpandMore />}

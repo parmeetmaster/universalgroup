@@ -13,8 +13,6 @@ import '../../../../core/util/image_utils.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/content_model.dart';
 
-/// Netflix-style hero: full-bleed tall poster, top chips bar overlaid,
-/// brand red wordmark top-left, title logo area, metadata line, action row.
 class HeroCarousel extends StatefulWidget {
   const HeroCarousel({super.key, required this.items});
   final List<ContentModel> items;
@@ -26,7 +24,7 @@ class HeroCarousel extends StatefulWidget {
 class _HeroCarouselState extends State<HeroCarousel> {
   final PageController _ctrl = PageController();
   Timer? _autoAdvance;
-  int _page = 0;
+  final _page = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -34,7 +32,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
     if (widget.items.length > 1) {
       _autoAdvance = Timer.periodic(const Duration(seconds: 6), (_) {
         if (!mounted || !_ctrl.hasClients) return;
-        final next = (_page + 1) % widget.items.length;
+        final next = (_page.value + 1) % widget.items.length;
         _ctrl.animateToPage(
           next,
           duration: const Duration(milliseconds: 650),
@@ -48,6 +46,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
   void dispose() {
     _autoAdvance?.cancel();
     _ctrl.dispose();
+    _page.dispose();
     super.dispose();
   }
 
@@ -62,7 +61,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
           PageView.builder(
             controller: _ctrl,
             itemCount: widget.items.length,
-            onPageChanged: (i) => setState(() => _page = i),
+            onPageChanged: (i) => _page.value = i,
             itemBuilder: (ctx, i) => _HeroSlide(content: widget.items[i]),
           ),
           if (widget.items.length > 1)
@@ -70,20 +69,23 @@ class _HeroCarouselState extends State<HeroCarousel> {
               bottom: 10,
               left: 0,
               right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  widget.items.length.clamp(0, 8),
-                  (i) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: i == _page ? 16 : 5,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: i == _page
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(3),
+              child: ValueListenableBuilder<int>(
+                valueListenable: _page,
+                builder: (ctx, currentPage, _) => Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    widget.items.length.clamp(0, 8),
+                    (i) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: i == currentPage ? 16 : 5,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: i == currentPage
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
                     ),
                   ),
                 ),
@@ -107,7 +109,6 @@ class _HeroSlide extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Backdrop — align subject upper third so big text below stays on dark area
           if (resolveImageUrl(content.backdropUrl ?? content.posterUrl) != null)
             CachedNetworkImage(
               imageUrl: resolveImageUrl(content.backdropUrl ?? content.posterUrl)!,
@@ -117,11 +118,9 @@ class _HeroSlide extends StatelessWidget {
             )
           else
             Container(color: AppColors.surface),
-          // Top shade
           Container(
             decoration: const BoxDecoration(gradient: AppGradients.heroTopShade),
           ),
-          // Strong bottom fade to pure black for title legibility
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -137,21 +136,18 @@ class _HeroSlide extends StatelessWidget {
               ),
             ),
           ),
-          // Top bar
           Positioned(
             top: topPad + 6,
             left: 0,
             right: 0,
             child: _TopBar(),
           ),
-          // Filter chips
           Positioned(
             top: topPad + 54,
             left: 0,
             right: 0,
             child: const _FilterChips(),
           ),
-          // Bottom content
           Positioned(
             left: 0,
             right: 0,
@@ -184,7 +180,6 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Row(
         children: [
-          // Brand wordmark
           Text(
             S.of(context)!.homeBrand,
             style: const TextStyle(
@@ -302,7 +297,6 @@ class _HeroContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Featured ribbon
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -330,7 +324,6 @@ class _HeroContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        // Title — bigger, tighter
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
           child: Text(

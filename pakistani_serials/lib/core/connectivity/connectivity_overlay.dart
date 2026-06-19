@@ -4,6 +4,12 @@ import '../../di/injection.dart';
 import '../theme/colors.dart';
 import 'connectivity_service.dart';
 
+class _OverlayState {
+  const _OverlayState({this.showBanner = false, this.wasOffline = false});
+  final bool showBanner;
+  final bool wasOffline;
+}
+
 class ConnectivityOverlay extends StatefulWidget {
   const ConnectivityOverlay({super.key, required this.child});
   final Widget child;
@@ -17,8 +23,7 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay>
   late final AnimationController _animCtrl;
   late final Animation<Offset> _slideAnim;
   late StreamSubscription<bool> _sub;
-  bool _showBanner = false;
-  bool _wasOffline = false;
+  final _state = ValueNotifier<_OverlayState>(const _OverlayState());
 
   @override
   void initState() {
@@ -36,25 +41,22 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay>
     final svc = getIt<ConnectivityService>();
 
     if (!svc.isOnline) {
-      _showBanner = true;
-      _wasOffline = true;
+      _state.value = const _OverlayState(showBanner: true, wasOffline: true);
       _animCtrl.forward();
     }
 
     _sub = svc.onStatusChange.listen((online) {
       if (!online) {
-        setState(() {
-          _showBanner = true;
-          _wasOffline = true;
-        });
+        _state.value = const _OverlayState(showBanner: true, wasOffline: true);
         _animCtrl.forward();
-      } else if (_wasOffline) {
-        // Show "Back online" briefly then hide
-        setState(() => _wasOffline = false);
+      } else if (_state.value.wasOffline) {
+        _state.value = const _OverlayState(showBanner: true, wasOffline: false);
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted && getIt<ConnectivityService>().isOnline) {
             _animCtrl.reverse().then((_) {
-              if (mounted) setState(() => _showBanner = false);
+              if (mounted) {
+                _state.value = const _OverlayState();
+              }
             });
           }
         });
@@ -66,6 +68,7 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay>
   void dispose() {
     _sub.cancel();
     _animCtrl.dispose();
+    _state.dispose();
     super.dispose();
   }
 
@@ -74,16 +77,21 @@ class _ConnectivityOverlayState extends State<ConnectivityOverlay>
     return Stack(
       children: [
         widget.child,
-        if (_showBanner)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SlideTransition(
-              position: _slideAnim,
-              child: _Banner(isOnline: !_wasOffline),
-            ),
-          ),
+        ValueListenableBuilder<_OverlayState>(
+          valueListenable: _state,
+          builder: (ctx, s, _) {
+            if (!s.showBanner) return const SizedBox.shrink();
+            return Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SlideTransition(
+                position: _slideAnim,
+                child: _Banner(isOnline: !s.wasOffline),
+              ),
+            );
+          },
+        ),
       ],
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -8,33 +9,25 @@ import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../di/injection.dart';
-import '../../../shared/data/api_service.dart';
 import '../../../shared/models/content_model.dart';
+import 'sources_cubit.dart';
 
-class SourcesScreen extends StatefulWidget {
+class SourcesScreen extends StatelessWidget {
   const SourcesScreen({super.key, required this.episode});
   final EpisodeModel episode;
 
   @override
-  State<SourcesScreen> createState() => _SourcesScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<SourcesCubit>()..resolve(episode.id),
+      child: _SourcesView(episode: episode),
+    );
+  }
 }
 
-class _SourcesScreenState extends State<SourcesScreen> {
-  final ApiService _api = getIt<ApiService>();
-
-  Future<List<ResolvedServer>>? _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  void _load() {
-    setState(() {
-      _future = _api.resolveEpisode(widget.episode.id);
-    });
-  }
+class _SourcesView extends StatelessWidget {
+  const _SourcesView({required this.episode});
+  final EpisodeModel episode;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +37,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
         backgroundColor: AppColors.bg,
         elevation: 0,
         title: Text(
-          widget.episode.title ?? 'Episode ${widget.episode.episodeNumber}',
+          episode.title ?? 'Episode ${episode.episodeNumber}',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -57,52 +50,45 @@ class _SourcesScreenState extends State<SourcesScreen> {
         ),
       ),
       bottomNavigationBar: adsEnabled
-          ? SizedBox(
-              height: 60,
+          ? const SafeArea(
+              top: false,
               child: ColoredBox(
                 color: AppColors.bg,
-                child: const Center(child: AdService.playBanner),
+                child: AdService.streamOptionBanner,
               ),
             )
           : null,
-      body: FutureBuilder<List<ResolvedServer>>(
-        future: _future,
-        builder: (ctx, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return const _LoadingState();
-          }
-          if (snap.hasError) {
-            return ErrorView(
-              message: 'Failed to fetch servers:\n${_friendly(snap.error)}',
-              onRetry: _load,
-            );
-          }
-          final servers = snap.data ?? const <ResolvedServer>[];
-          if (servers.isEmpty) return const _EmptyState();
-          return ListView.separated(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            itemCount: servers.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) => _SourceTile(
-              server: servers[i],
-              onTap: () => context.push(
-                AppRoutes.player,
-                extra: PlaybackRequest(
-                  episode: widget.episode,
-                  url: servers[i].url,
-                  label: servers[i].label,
-                ),
+      body: BlocBuilder<SourcesCubit, SourcesState>(
+        builder: (ctx, state) {
+          return switch (state.status) {
+            SourcesStatus.initial || SourcesStatus.loading =>
+              const _LoadingState(),
+            SourcesStatus.error => ErrorView(
+                message: 'Failed to fetch servers:\n${state.errorMessage ?? "Unknown error"}',
+                onRetry: () => ctx.read<SourcesCubit>().resolve(episode.id),
               ),
-            ),
-          );
+            SourcesStatus.loaded => state.servers.isEmpty
+                ? const _EmptyState()
+                : ListView.separated(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    itemCount: state.servers.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) => _SourceTile(
+                      server: state.servers[i],
+                      onTap: () => context.push(
+                        AppRoutes.player,
+                        extra: PlaybackRequest(
+                          episode: episode,
+                          url: state.servers[i].url,
+                          label: state.servers[i].label,
+                        ),
+                      ),
+                    ),
+                  ),
+          };
         },
       ),
     );
-  }
-
-  String _friendly(Object? err) {
-    if (err == null) return 'Unknown error';
-    return err.toString().replaceAll('Exception:', '').trim();
   }
 }
 
@@ -152,7 +138,6 @@ class _SourceTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
           children: [
-            // Play area (tappable)
             Expanded(
               child: InkWell(
                 onTap: onTap,
@@ -205,7 +190,6 @@ class _SourceTile extends StatelessWidget {
                 ),
               ),
             ),
-            // Download button (separate tap target)
             if (_isDownloadable) ...[
               const SizedBox(width: 8),
               InkWell(

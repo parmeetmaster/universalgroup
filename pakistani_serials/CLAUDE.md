@@ -48,9 +48,11 @@ lib/
     └── presentation/{bloc,screens,widgets}/
 ```
 
-State: `flutter_bloc` + `hydrated_bloc` (for Auth / Settings). NEVER `setState` in feature screens — always Bloc.
+State: `flutter_bloc` + `hydrated_bloc` (for Auth / Settings). **NEVER use `setState` or `ValueNotifier` anywhere in the entire app** — not in feature screens, not in small widgets, nowhere. Use BLoC for feature state, `Cubit` for local UI state (toggles, animation flags, drag state, loading booleans). Create small private Cubits in the same file, use `BlocBuilder(bloc: myCubit)` pattern. No exceptions.
 DI: `get_it` + `injectable`. Run `dart run build_runner build --delete-conflicting-outputs` after adding `@injectable` classes or `freezed`/`json_serializable` models.
 Routing: `go_router`. Central `app_router.dart`.
+
+**Strict Clean Architecture:** Business logic and routing/navigation MUST NOT live in the presentation layer (screens/widgets). Screens only render UI and dispatch events to BLoC. All business logic (API calls, data transforms, validation, service calls) goes in usecases/repositories/BLoC event handlers. `getIt<>` in presentation files is ONLY allowed for BLoC/Cubit creation (`getIt<MyBloc>()`). NEVER use `getIt<>` for services, repositories, or utilities in screens/widgets — inject those through BLoC constructors instead.
 
 ## Design System
 

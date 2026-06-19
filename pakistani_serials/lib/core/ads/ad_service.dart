@@ -4,13 +4,16 @@ import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:injectable/injectable.dart';
 
-// Ad unit IDs
-const _interstitialId = 'ca-app-pub-9421269541566983/9864047181';
-const _appOpenId = 'ca-app-pub-9421269541566983/8415234146';
-const _descBannerId = 'ca-app-pub-9421269541566983/4603981640';
-const _playBannerId = 'ca-app-pub-9421269541566983/9001401974';
-const _homeNativeId = 'ca-app-pub-9421269541566983/8259851704';
-const _browseNativeId = 'ca-app-pub-9421269541566983/7198355391';
+// Ad unit IDs — names match AdMob console
+const _episodeInterstitialId = 'ca-app-pub-9421269541566983/9864047181'; // episode_intertials
+const _appOpenId = 'ca-app-pub-9421269541566983/8415234146'; // app_open_ads
+const _descriptionBannerId = 'ca-app-pub-9421269541566983/4603981640'; // description_banner
+const _playPageButtonId = 'ca-app-pub-9421269541566983/9001401974'; // play_page_button
+const _homeNativeId = 'ca-app-pub-9421269541566983/8259851704'; // home_native
+const _browserTabAdId = 'ca-app-pub-9421269541566983/7198355391'; // browser_tab_ad
+const _browseBannerId = 'ca-app-pub-9421269541566983/4336160396'; // browse_banner_ads_category
+const _streamOptionBannerId = 'ca-app-pub-9421269541566983/1061017953'; // stream_option_screen_banner
+const _episodeListNativeId = 'ca-app-pub-9421269541566983/6242026594'; // episode_list_native
 
 const _interstitialPoolSize = 2;
 
@@ -34,6 +37,11 @@ class AdService {
   Future<void> init() async {
     if (!adsEnabled || _sdkInitialized) return;
     await MobileAds.instance.initialize();
+    // Restrict served ads to Teen-rated content so gambling / sweepstakes
+    // and other mature categories are excluded (Play content-rating policy).
+    await MobileAds.instance.updateRequestConfiguration(
+      RequestConfiguration(maxAdContentRating: MaxAdContentRating.t),
+    );
     _sdkInitialized = true;
     debugPrint('AdService: SDK initialized');
 
@@ -95,7 +103,7 @@ class AdService {
   void _loadInterstitial() {
     if (!_sdkInitialized) return;
     InterstitialAd.load(
-      adUnitId: _interstitialId,
+      adUnitId: _episodeInterstitialId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
@@ -172,10 +180,13 @@ class AdService {
   // ═══════════════════════════════════════════════════
 
   /// Pre-built ad widgets — const to avoid rebuilds.
-  static const Widget descriptionBanner = _BannerAdWidget(adUnitId: _descBannerId);
-  static const Widget playBanner = _BannerAdWidget(adUnitId: _playBannerId);
+  static const Widget descriptionBanner = _BannerAdWidget(adUnitId: _descriptionBannerId);
+  static const Widget playPageBanner = _BannerAdWidget(adUnitId: _playPageButtonId);
+  static const Widget browseBanner = _BannerAdWidget(adUnitId: _browseBannerId);
+  static const Widget streamOptionBanner = _BannerAdWidget(adUnitId: _streamOptionBannerId);
   static const Widget homeNativeAd = _NativeAdWidget(adUnitId: _homeNativeId);
-  static const Widget browseNativeAd = _NativeAdWidget(adUnitId: _browseNativeId);
+  static const Widget browseNativeAd = _NativeAdWidget(adUnitId: _browserTabAdId);
+  static const Widget episodeListNativeAd = _NativeAdWidget(adUnitId: _episodeListNativeId);
 }
 
 class _BannerAdWidget extends StatefulWidget {
@@ -188,7 +199,7 @@ class _BannerAdWidget extends StatefulWidget {
 
 class _BannerAdWidgetState extends State<_BannerAdWidget> {
   BannerAd? _bannerAd;
-  bool _isLoaded = false;
+  final _isLoaded = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -203,7 +214,7 @@ class _BannerAdWidgetState extends State<_BannerAdWidget> {
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (ad) {
-          if (mounted) setState(() => _isLoaded = true);
+          _isLoaded.value = true;
         },
         onAdFailedToLoad: (ad, error) {
           debugPrint('Banner load failed: ${error.message}');
@@ -217,16 +228,22 @@ class _BannerAdWidgetState extends State<_BannerAdWidget> {
   @override
   void dispose() {
     _bannerAd?.dispose();
+    _isLoaded.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_isLoaded || _bannerAd == null) return const SizedBox.shrink();
-    return SizedBox(
-      width: _bannerAd!.size.width.toDouble(),
-      height: _bannerAd!.size.height.toDouble(),
-      child: AdWidget(ad: _bannerAd!),
+    return ValueListenableBuilder<bool>(
+      valueListenable: _isLoaded,
+      builder: (ctx, loaded, _) {
+        if (!loaded || _bannerAd == null) return const SizedBox.shrink();
+        return SizedBox(
+          width: _bannerAd!.size.width.toDouble(),
+          height: _bannerAd!.size.height.toDouble(),
+          child: AdWidget(ad: _bannerAd!),
+        );
+      },
     );
   }
 }
@@ -241,7 +258,7 @@ class _NativeAdWidget extends StatefulWidget {
 
 class _NativeAdWidgetState extends State<_NativeAdWidget> {
   NativeAd? _nativeAd;
-  bool _isLoaded = false;
+  final _isLoaded = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -256,7 +273,7 @@ class _NativeAdWidgetState extends State<_NativeAdWidget> {
       factoryId: 'listTile',
       listener: NativeAdListener(
         onAdLoaded: (ad) {
-          if (mounted) setState(() => _isLoaded = true);
+          _isLoaded.value = true;
         },
         onAdFailedToLoad: (ad, error) {
           debugPrint('Native ad load failed: ${error.message}');
@@ -270,21 +287,27 @@ class _NativeAdWidgetState extends State<_NativeAdWidget> {
   @override
   void dispose() {
     _nativeAd?.dispose();
+    _isLoaded.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_isLoaded || _nativeAd == null) return const SizedBox.shrink();
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      height: 144,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A24),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: AdWidget(ad: _nativeAd!),
+    return ValueListenableBuilder<bool>(
+      valueListenable: _isLoaded,
+      builder: (ctx, loaded, _) {
+        if (!loaded || _nativeAd == null) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          height: 144,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A24),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: AdWidget(ad: _nativeAd!),
+        );
+      },
     );
   }
 }

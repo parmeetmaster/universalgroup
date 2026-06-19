@@ -4,11 +4,11 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/ads/ad_service.dart';
-import '../../../../core/notifications/notification_service.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/widgets/error_view.dart';
+import '../../../../core/widgets/rating_dialog.dart';
 import '../../../../core/widgets/shimmer_placeholder.dart';
 import '../../../../di/injection.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -29,19 +29,8 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _HomeView extends StatefulWidget {
+class _HomeView extends StatelessWidget {
   const _HomeView();
-
-  @override
-  State<_HomeView> createState() => _HomeViewState();
-}
-
-class _HomeViewState extends State<_HomeView> {
-  @override
-  void initState() {
-    super.initState();
-    getIt<NotificationService>().init();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +48,15 @@ class _HomeViewState extends State<_HomeView> {
               .stream
               .firstWhere((s) => s.status != HomeStatus.loading);
         },
-        child: BlocBuilder<HomeBloc, HomeState>(
+        child: BlocConsumer<HomeBloc, HomeState>(
+          listenWhen: (prev, curr) =>
+              curr.status == HomeStatus.loaded && curr.shouldShowRating && !prev.shouldShowRating,
+          listener: (ctx, state) {
+            Future.delayed(const Duration(seconds: 2), () {
+              if (!ctx.mounted) return;
+              showRatingDialog(ctx);
+            });
+          },
           builder: (ctx, state) {
             return switch (state.status) {
               HomeStatus.loading || HomeStatus.initial => const ShimmerHomeSkeleton(),
@@ -164,10 +161,8 @@ class _LoadedContent extends StatelessWidget {
             childCount: otherRails.length,
           ),
         ),
-        const SliverToBoxAdapter(child: AdService.homeNativeAd),
-        const SliverToBoxAdapter(child: SizedBox(height: 10)),
         const SliverToBoxAdapter(child: _FooterBrand()),
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        const SliverToBoxAdapter(child: SizedBox(height: 130)),
       ],
     );
   }

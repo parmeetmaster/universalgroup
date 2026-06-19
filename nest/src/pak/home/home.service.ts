@@ -69,32 +69,34 @@ export class PakHomeService {
   // ── Latest Releases: series whose newest episode aired most recently ──
 
   private async buildLatestReleasesRail(): Promise<HomeRailPayload> {
+    // Priority = every series that aired an episode today. If today has fewer
+    // than 10, top up with the most-recently aired series so the rail always
+    // shows at least 10. Today's series naturally sort first under
+    // MAX(air_date) DESC, so a single ordered query with a dynamic limit covers
+    // both cases — and mirrors the `latest-releases` See-all query exactly.
+    const [{ cnt }]: { cnt: number }[] = await this.episodeRepo.query(
+      `SELECT COUNT(*) AS cnt FROM (
+         SELECT e.drama_id
+         FROM episodes e
+         JOIN dramas d ON d.id = e.drama_id AND d.is_published = 1 AND d.deleted_at IS NULL
+           AND d.poster_url IS NOT NULL
+         WHERE DATE(e.air_date) = CURDATE()
+         GROUP BY e.drama_id
+       ) t`,
+    );
+    const limit = Math.max(10, Number(cnt) || 0);
+
     const rows: { drama_id: string; last_ep: string }[] = await this.episodeRepo.query(
       `SELECT e.drama_id, MAX(e.air_date) AS last_ep
        FROM episodes e
        JOIN dramas d ON d.id = e.drama_id AND d.is_published = 1 AND d.deleted_at IS NULL
          AND d.poster_url IS NOT NULL
-       WHERE e.air_date > NOW() - INTERVAL 24 HOUR
+       WHERE e.air_date IS NOT NULL
        GROUP BY e.drama_id
        ORDER BY last_ep DESC
-       LIMIT 20`,
+       LIMIT ?`,
+      [limit],
     );
-
-    // Fallback: if nothing in 24h, widen to 7 days
-    if (rows.length === 0) {
-      const fallbackRows: { drama_id: string; last_ep: string }[] =
-        await this.episodeRepo.query(
-          `SELECT e.drama_id, MAX(e.air_date) AS last_ep
-           FROM episodes e
-           JOIN dramas d ON d.id = e.drama_id AND d.is_published = 1 AND d.deleted_at IS NULL
-             AND d.poster_url IS NOT NULL
-           WHERE e.air_date > NOW() - INTERVAL 7 DAY
-           GROUP BY e.drama_id
-           ORDER BY last_ep DESC
-           LIMIT 20`,
-        );
-      return this.hydrateRail('latest-releases', 'Latest Releases', 'recent_release', fallbackRows);
-    }
 
     return this.hydrateRail('latest-releases', 'Latest Releases', 'recent_release', rows);
   }

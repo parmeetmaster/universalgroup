@@ -52,6 +52,7 @@ const common = {
   FIREBASE_SERVICE_ACCOUNT_PATH: '/www/wwwroot/global-api/firebase/anime-firebase.json',
   AVIATION_FIREBASE_PATH: '/www/wwwroot/global-api/firebase/aviation-firebase.json',
   PAK_FIREBASE_PATH: '/www/wwwroot/global-api/firebase/pak-firebase.json',
+  MANGA_FIREBASE_PATH: '/www/wwwroot/global-api/firebase/manga-firebase.json',
 };
 
 module.exports = {

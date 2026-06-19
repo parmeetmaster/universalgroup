@@ -154,18 +154,33 @@ export class PakDramaSpiceDriver {
       season = await this.seasonRepo.save(season);
     }
 
-    // Get existing episode numbers
+    // Get existing episodes
     const existing = await this.episodeRepo.find({
       where: { dramaId: drama.id },
-      select: ['number'],
     });
-    const existingNumbers = new Set(existing.map((e) => e.number));
+    const existingByNum = new Map(existing.map((e) => [e.number, e]));
 
-    // Insert new episodes
+    // Insert new episodes / update airDate for re-published ones
     for (const entry of entries) {
-      if (existingNumbers.has(entry.episodeNumber)) continue;
+      const existingEp = existingByNum.get(entry.episodeNumber);
+      if (existingEp) {
+        // Update airDate when source re-published (trailer → real episode)
+        const parsedDate = entry.lastmod ? new Date(entry.lastmod) : null;
+        if (
+          parsedDate &&
+          !isNaN(parsedDate.getTime()) &&
+          (!existingEp.airDate ||
+            parsedDate.getTime() > existingEp.airDate.getTime())
+        ) {
+          existingEp.airDate = parsedDate;
+          await this.episodeRepo.save(existingEp);
+        }
+        continue;
+      }
 
       // Use the sitemap lastmod when valid, otherwise stamp now (newly aired).
+      // The scraper processes dramas sequentially so the natural insert order
+      // provides a meaningful secondary sort within the same day.
       const parsedAirDate = entry.lastmod ? new Date(entry.lastmod) : null;
       const episode = this.episodeRepo.create({
         dramaId: drama.id,
@@ -184,7 +199,7 @@ export class PakDramaSpiceDriver {
 
       try {
         await this.episodeRepo.save(episode);
-        existingNumbers.add(entry.episodeNumber);
+        existingByNum.set(entry.episodeNumber, episode);
         newEpisodes++;
         this.logger.log(
           `New episode: ${drama.title} Ep${entry.episodeNumber}`,
@@ -274,6 +289,103 @@ export class PakDramaSpiceDriver {
     const m = /post-sitemap(\d*)\.xml/.exec(url);
     if (!m) return 0;
     return m[1] ? parseInt(m[1], 10) : 1;
+  }
+
+  // ── Homepage "Today's Episodes" sync ─────────────────
+
+  /**
+   * Scrapes the DramaSpice homepage to discover which episodes aired today
+   * and sets their `airDate` with ordered timestamps so the "Latest Releases"
+   * rail matches the homepage order exactly.
+   *
+   * Homepage lists episodes newest-first. We assign decreasing timestamps
+   * (today 23:59, 23:58, …) so `ORDER BY air_date DESC` preserves that order.
+   */
+  async syncHomepageAirDates(): Promise<{
+    found: number;
+    updated: number;
+    errors: string[];
+  }> {
+    const errors: string[] = [];
+    let updated = 0;
+
+    // 1. Fetch homepage HTML
+    let html: string;
+    try {
+      const res = await fetch('https://dramaspice.net/', {
+        headers: { 'User-Agent': UA },
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      html = await res.text();
+    } catch (err) {
+      const msg = `Homepage fetch failed: ${(err as Error).message}`;
+      this.logger.error(msg);
+      return { found: 0, updated: 0, errors: [msg] };
+    }
+
+    // 2. Extract episode links in page order (homepage lists newest first)
+    //    Links look like: href="https://dramaspice.net/shaidai-episode-20/"
+    const linkRe =
+      /href="https?:\/\/dramaspice\.net\/([a-z0-9][a-z0-9-]*)-episode-(\d+)\/?"/gi;
+    const seen = new Set<string>();
+    const todayEpisodes: { slug: string; epNum: number }[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = linkRe.exec(html)) !== null) {
+      const key = `${m[1]}:${m[2]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      todayEpisodes.push({ slug: m[1], epNum: parseInt(m[2], 10) });
+    }
+
+    if (todayEpisodes.length === 0) {
+      this.logger.log('Homepage sync: no episodes found on homepage');
+      return { found: 0, updated: 0, errors: [] };
+    }
+    this.logger.log(
+      `Homepage sync: found ${todayEpisodes.length} episodes on homepage`,
+    );
+
+    // 3. For each episode, find in DB and set airDate preserving page order.
+    //    First item = most recent → gets the latest timestamp.
+    const today = new Date();
+    today.setHours(23, 59, 0, 0);
+
+    for (let i = 0; i < todayEpisodes.length; i++) {
+      const { slug, epNum } = todayEpisodes[i];
+      try {
+        const drama = await this.dramaRepo.findOne({ where: { slug } });
+        if (!drama) continue;
+
+        const ep = await this.episodeRepo.findOne({
+          where: { dramaId: drama.id, number: epNum },
+        });
+        if (!ep) continue;
+
+        // Assign ordered timestamp: first = 23:59, second = 23:58, ...
+        const orderedDate = new Date(today);
+        orderedDate.setMinutes(59 - i);
+
+        // Only update if our new timestamp is on today or later than existing
+        const existingDay = ep.airDate
+          ? ep.airDate.toISOString().slice(0, 10)
+          : null;
+        const todayStr = orderedDate.toISOString().slice(0, 10);
+
+        if (!ep.airDate || existingDay! <= todayStr) {
+          ep.airDate = orderedDate;
+          await this.episodeRepo.save(ep);
+          updated++;
+        }
+      } catch (err) {
+        errors.push(`${slug} ep${epNum}: ${(err as Error).message}`);
+      }
+    }
+
+    this.logger.log(
+      `Homepage sync: updated ${updated}/${todayEpisodes.length} air dates`,
+    );
+    return { found: todayEpisodes.length, updated, errors };
   }
 
   private slugToTitle(slug: string): string {

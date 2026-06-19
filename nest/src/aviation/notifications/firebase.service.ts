@@ -44,32 +44,35 @@ export class FirebaseService implements OnModuleInit {
     }
 
     try {
+      // DATA-ONLY message: no top-level `notification` block. This stops Android/FCM
+      // from auto-displaying a system notification, so the app renders exactly one
+      // (silent) notification itself — killing the duplicate + heads-up/sound.
       const message: admin.messaging.Message = {
         topic,
-        notification: {
+        android: {
+          // Delivery priority only (wakes the app promptly even in doze).
+          // This is NOT the heads-up priority — the app's low-importance channel
+          // keeps the displayed notification silent.
+          priority: 'high',
+        },
+        apns: {
+          headers: { 'apns-priority': '10' },
+          payload: {
+            aps: {
+              // iOS can't reliably render data-only pushes, so show a native
+              // silent alert there (no `sound` key → no sound).
+              alert: { title, body },
+              'mutable-content': 1,
+            },
+          },
+          ...(imageUrl ? { fcmOptions: { imageUrl } } : {}),
+        },
+        data: {
+          ...(data || {}),
           title,
           body,
           ...(imageUrl ? { imageUrl } : {}),
         },
-        android: {
-          notification: {
-            channelId: 'breaking_news',
-            priority: 'high',
-            ...(imageUrl ? { imageUrl } : {}),
-          },
-        },
-        apns: {
-          payload: {
-            aps: {
-              'mutable-content': 1,
-              sound: 'default',
-            },
-          },
-          ...(imageUrl
-            ? { fcmOptions: { imageUrl } }
-            : {}),
-        },
-        data: data || {},
       };
 
       const response = await admin.messaging().send(message);

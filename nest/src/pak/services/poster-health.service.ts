@@ -127,16 +127,20 @@ export class PosterHealthService {
   }> {
     const dramas = await this.dramaRepo.find({
       where: { isPublished: 1 },
-      select: ['id', 'title', 'slug', 'posterUrl', 'backdropUrl'],
+      select: ['id', 'title', 'slug', 'posterUrl', 'backdropUrl', 'posterOriginalUrl'],
     });
 
     const result = { checked: 0, broken: 0, fixed: 0, failed: [] as string[] };
 
     for (const drama of dramas) {
       result.checked++;
-      const posterBroken = drama.posterUrl
-        ? !(await this.isUrlAccessible(drama.posterUrl))
-        : !drama.posterUrl;
+      // A poster sourced from the dramaxima logo/placeholder loads fine but is
+      // junk, so treat it as broken to force a real replacement.
+      const posterBroken = this.isJunkPoster(drama.posterOriginalUrl)
+        ? true
+        : drama.posterUrl
+          ? !(await this.isUrlAccessible(drama.posterUrl))
+          : !drama.posterUrl;
       const backdropBroken = drama.backdropUrl
         ? !(await this.isUrlAccessible(drama.backdropUrl))
         : false;
@@ -164,6 +168,12 @@ export class PosterHealthService {
       `Poster health: checked=${result.checked}, broken=${result.broken}, fixed=${result.fixed}, failed=${result.failed.length}`,
     );
     return result;
+  }
+
+  /** dramaxima site chrome / generic placeholders that aren't real posters. */
+  isJunkPoster(url?: string | null): boolean {
+    if (!url) return false;
+    return /dramaxima(@2x)?\.png|\/dx\.png|favicon|cropped-|\/logo|untitled-design/i.test(url);
   }
 
   async isUrlAccessible(url: string): Promise<boolean> {

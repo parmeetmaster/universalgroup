@@ -1,9 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_config_store.dart';
+import '../../core/config/env.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -52,8 +58,18 @@ class ProfileScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
-              // Language + About
+              // Notifications + Language + About
               _Card(children: [
+                SwitchListTile(
+                  secondary: const Icon(Icons.notifications_active_outlined),
+                  title: const Text('Notifications'),
+                  subtitle: const Text('New episode alerts'),
+                  value: state.notificationsEnabled,
+                  activeThumbColor: AppColors.accent,
+                  onChanged: (v) =>
+                      ctx.read<SettingsBloc>().add(ToggleNotifications(v)),
+                ),
+                const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.language_rounded),
                   title: Text(s.settingsLanguage),
@@ -85,6 +101,17 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: AppSpacing.x2),
                 _Announcement(text: cfg.announcement!),
               ],
+
+              const SizedBox(height: AppSpacing.x2),
+              _Card(children: [
+                ListTile(
+                  leading: const Icon(Icons.share_rounded),
+                  title: const Text('Share app'),
+                  subtitle: const Text('Tell your friends about us'),
+                  trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                  onTap: () => _shareApp(context),
+                ),
+              ]),
 
               if (linkTiles.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.x2),
@@ -189,6 +216,39 @@ class _Announcement extends StatelessWidget {
           ],
         ),
       );
+}
+
+Future<void> _shareApp(BuildContext context) async {
+  final cfg = AppConfigStore.value;
+  final storeUrl = cfg.playStoreUrl ?? '';
+
+  final text = StringBuffer()
+    ..writeln('${Env.appName} - Watch Pakistani Dramas & Serials FREE!')
+    ..writeln()
+    ..writeln('Stream your favourite Pakistani dramas anytime, anywhere.')
+    ..writeln();
+  if (storeUrl.isNotEmpty) {
+    text.writeln('Download now: $storeUrl');
+  }
+
+  // Write the app icon to a temp file so it appears in the share sheet.
+  XFile? logoFile;
+  try {
+    final byteData = await rootBundle.load('assets/icons/app_icon.png');
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/pakistani_serials_share.png');
+    await file.writeAsBytes(byteData.buffer.asUint8List());
+    logoFile = XFile(file.path, mimeType: 'image/png');
+  } catch (_) {
+    // If icon not bundled as asset, share text only.
+  }
+
+  final shareText = text.toString().trimRight();
+  if (logoFile != null) {
+    await Share.shareXFiles([logoFile], text: shareText, subject: Env.appName);
+  } else {
+    await Share.share(shareText, subject: Env.appName);
+  }
 }
 
 bool _nonEmpty(String? s) => s != null && s.trim().isNotEmpty;

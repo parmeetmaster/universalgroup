@@ -138,12 +138,12 @@ export class PakNotificationCronService implements OnModuleInit {
           silent: alertSent,
         });
 
-        // Set flag ONLY after FCM succeeds (at least one topic delivered)
-        if (result.global || result.drama) {
+        // Set flag ONLY after FCM succeeds
+        if (result.messageId) {
           await this.episodeRepo.update(ep.id, { notificationSent: 1 });
 
           this.logger.log(
-            `Notified: ${title} Ep${ep.number} [global:${result.global}, drama:${result.drama}]`,
+            `Notified: ${title} Ep${ep.number} [${result.messageId}]`,
           );
         } else {
           this.logger.warn(

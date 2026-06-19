@@ -49,15 +49,15 @@ interface AppConfig {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parseDeepString(val: string): any {
+function parseDeepString(val: unknown): any {
+  if (val === null || val === undefined) return val;
+  // If already an array/object, return as-is
+  if (typeof val !== "string") return val;
   if (!val) return val;
   try {
-    let parsed = val;
-    // Keep parsing until we get a non-string result or it fails
+    let parsed: unknown = val;
     while (typeof parsed === "string") {
-      const next = JSON.parse(parsed);
-      if (typeof next === "string") parsed = next;
-      else return next;
+      parsed = JSON.parse(parsed);
     }
     return parsed;
   } catch {
@@ -65,12 +65,24 @@ function parseDeepString(val: string): any {
   }
 }
 
-function parseConfig(raw: string): AppConfig {
-  const obj = typeof raw === "string" ? JSON.parse(raw) : raw;
+function parseConfig(raw: unknown): AppConfig {
+  // Unwrap deeply stringified value (TypeORM + mysql2 can double/triple stringify)
+  let obj = raw;
+  while (typeof obj === "string") {
+    try {
+      obj = JSON.parse(obj);
+    } catch {
+      break;
+    }
+  }
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
+    obj = {};
+  }
+  const cfg = obj as Record<string, unknown>;
 
   let blockedUrls: BlockedUrl[] = [];
   try {
-    const parsed = parseDeepString(obj.blocked_urls);
+    const parsed = parseDeepString(cfg.blocked_urls);
     if (Array.isArray(parsed)) {
       blockedUrls = parsed.filter((u: BlockedUrl) => u && u.url);
     }
@@ -78,7 +90,7 @@ function parseConfig(raw: string): AppConfig {
 
   let trends: string[] = [];
   try {
-    const parsed = parseDeepString(obj.trends);
+    const parsed = parseDeepString(cfg.trends);
     if (Array.isArray(parsed)) {
       trends = parsed.filter(Boolean);
     }
@@ -86,7 +98,7 @@ function parseConfig(raw: string): AppConfig {
 
   let topSites: TopSite[] = [];
   try {
-    const parsed = parseDeepString(obj.top_sites);
+    const parsed = parseDeepString(cfg.top_sites);
     if (Array.isArray(parsed)) {
       topSites = parsed.filter((s: TopSite) => s && s.name && s.url);
     }
@@ -94,18 +106,18 @@ function parseConfig(raw: string): AppConfig {
 
   let blockedRegions: string[] = [];
   try {
-    const parsed = parseDeepString(obj.blocked_regions);
+    const parsed = parseDeepString(cfg.blocked_regions);
     if (Array.isArray(parsed)) {
       blockedRegions = parsed.filter(Boolean);
     }
   } catch {}
 
   return {
-    app_version: obj.app_version || "",
-    update_build_version: Number(obj.update_build_version) || 0,
-    force_update: Boolean(obj.force_update),
+    app_version: String(cfg.app_version || ""),
+    update_build_version: Number(cfg.update_build_version) || 0,
+    force_update: Boolean(cfg.force_update),
     blocked_urls: blockedUrls,
-    force_update_after_version: Number(obj.force_update_after_version) || 0,
+    force_update_after_version: Number(cfg.force_update_after_version) || 0,
     trends,
     top_sites: topSites,
     blocked_regions: blockedRegions,

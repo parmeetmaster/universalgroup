@@ -25,10 +25,8 @@ export class CreateFeedbackDto {
   @ApiProperty({ required: false, description: 'Device info (model, OS version)', example: 'vivo I2407 / Android 16' })
   deviceInfo?: string;
 
-  @ApiProperty({
-    required: false,
-    description: 'Any additional app-specific fields — stored as-is in the flexible extra column',
-    example: { currentUrl: 'https://gogoanime.by', adBlockOn: false },
-  })
+  // Any additional app-specific fields are accepted and stored as-is in the
+  // flexible `extra` column. Decorators are not valid on an index signature,
+  // so this stays undocumented in Swagger (Swagger can't model open key sets).
   [key: string]: unknown;
 }

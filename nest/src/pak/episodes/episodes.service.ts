@@ -287,6 +287,7 @@ export class PakEpisodesService {
       const active = (ep.videos ?? [])
         .filter((v) => v.isActive)
         .sort((a, b) => a.priority - b.priority);
+      ep.title = `Episode ${ep.number}`;
       return Object.assign(ep, { playUrl: active[0]?.url ?? null });
     });
   }

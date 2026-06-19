@@ -13,6 +13,7 @@ export type CreateReportInput = {
   error_message?: string;
   download_url?: string;
   additional_info?: string;
+  location?: string;
 };
 
 @Injectable()
@@ -37,6 +38,7 @@ export class ReportsService {
       errorMessage: this.trim(input.error_message, 10_000),
       downloadUrl: this.trim(input.download_url, 2_000),
       additionalInfo: this.trim(input.additional_info, 10_000),
+      location: this.trim(input.location, 200),
       status: 'open',
     });
     return this.repo.save(row);

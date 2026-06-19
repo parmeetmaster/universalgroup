@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/ads/ad_service.dart';
 import '../../../../core/util/watch_history.dart';
 import '../../../shared/data/api_service.dart';
 import '../../../shared/models/content_model.dart';
@@ -21,6 +22,16 @@ class DetailSeasonChanged extends DetailEvent {
 }
 class DetailWatchlistToggled extends DetailEvent {}
 class DetailLikeToggled extends DetailEvent {}
+class DetailEpisodePlayed extends DetailEvent {
+  DetailEpisodePlayed({
+    required this.slug,
+    required this.seasonNumber,
+    required this.episodeNumber,
+  });
+  final String slug;
+  final int seasonNumber;
+  final int episodeNumber;
+}
 
 enum DetailStatus { initial, loading, loaded, error }
 
@@ -36,6 +47,7 @@ class DetailState extends Equatable {
     this.isLiked = false,
     this.totalLikes = 0,
     this.lastPlayed,
+    this.watchedEpisodes = const {},
     this.errorMessage,
   });
 
@@ -49,7 +61,11 @@ class DetailState extends Equatable {
   final bool isLiked;
   final int totalLikes;
   final LastPlayed? lastPlayed;
+  final Set<int> watchedEpisodes;
   final String? errorMessage;
+
+  bool isEpisodeWatched(int episodeNumber) =>
+      watchedEpisodes.contains(episodeNumber);
 
   DetailState copyWith({
     DetailStatus? status,
@@ -63,6 +79,7 @@ class DetailState extends Equatable {
     int? totalLikes,
     LastPlayed? lastPlayed,
     bool clearLastPlayed = false,
+    Set<int>? watchedEpisodes,
     String? errorMessage,
   }) =>
       DetailState(
@@ -76,12 +93,13 @@ class DetailState extends Equatable {
         isLiked: isLiked ?? this.isLiked,
         totalLikes: totalLikes ?? this.totalLikes,
         lastPlayed: clearLastPlayed ? null : (lastPlayed ?? this.lastPlayed),
+        watchedEpisodes: watchedEpisodes ?? this.watchedEpisodes,
         errorMessage: errorMessage,
       );
 
   @override
   List<Object?> get props =>
-      [status, content, seasons, episodes, related, currentSeason, inWatchlist, isLiked, totalLikes, lastPlayed, errorMessage];
+      [status, content, seasons, episodes, related, currentSeason, inWatchlist, isLiked, totalLikes, lastPlayed, watchedEpisodes, errorMessage];
 }
 
 const _deviceIdKey = 'pak_device_id';
@@ -89,16 +107,18 @@ const _likedKey = 'pak_liked_slugs';
 
 @injectable
 class DetailBloc extends Bloc<DetailEvent, DetailState> {
-  DetailBloc(this._api, this._watchlist, this._watchHistory) : super(const DetailState()) {
+  DetailBloc(this._api, this._watchlist, this._watchHistory, this._adService) : super(const DetailState()) {
     on<DetailLoad>(_onLoad);
     on<DetailSeasonChanged>(_onSeasonChanged);
     on<DetailWatchlistToggled>(_onWatchlistToggled);
     on<DetailLikeToggled>(_onLikeToggled);
+    on<DetailEpisodePlayed>(_onEpisodePlayed);
   }
 
   final ApiService _api;
   final WatchlistBloc _watchlist;
   final WatchHistoryService _watchHistory;
+  final AdService _adService;
 
   static Future<String> _getDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -136,8 +156,9 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
       final likedSlugs = await _getLocalLikedSlugs();
       final isLiked = likedSlugs.contains(e.slug);
 
-      // Load last played episode for this drama
+      // Load last played episode and watched set for this drama
       final lp = _watchHistory.getLastPlayed(e.slug);
+      final watched = _watchHistory.getWatchedEpisodes(e.slug);
 
       // Record view
       _api.recordView(e.slug).catchError((_) {});
@@ -153,6 +174,7 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
         isLiked: isLiked,
         totalLikes: content.totalLikes,
         lastPlayed: lp,
+        watchedEpisodes: watched,
       ));
     } catch (err) {
       emit(state.copyWith(status: DetailStatus.error, errorMessage: err.toString()));
@@ -217,6 +239,25 @@ class DetailBloc extends Bloc<DetailEvent, DetailState> {
     } catch (_) {
       // Revert on failure
       emit(state.copyWith(isLiked: wasLiked, totalLikes: state.totalLikes));
+    }
+  }
+
+  Future<void> _onEpisodePlayed(
+      DetailEpisodePlayed e, Emitter<DetailState> emit) async {
+    await _watchHistory.saveLastPlayed(e.slug, e.seasonNumber, e.episodeNumber);
+    await _watchHistory.markWatched(e.slug, e.episodeNumber);
+    final updated = Set<int>.of(state.watchedEpisodes)..add(e.episodeNumber);
+    emit(state.copyWith(
+      watchedEpisodes: updated,
+      lastPlayed: LastPlayed(
+        seasonNumber: e.seasonNumber,
+        episodeNumber: e.episodeNumber,
+      ),
+    ));
+    if (adsEnabled) {
+      Future<void>.delayed(const Duration(milliseconds: 500), () {
+        _adService.showInterstitial();
+      });
     }
   }
 }

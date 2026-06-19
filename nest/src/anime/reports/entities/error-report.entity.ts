@@ -30,6 +30,9 @@ export class ErrorReportEntity {
   @Column({ type: 'text', nullable: true, name: 'additional_info' })
   additionalInfo: string | null = null;
 
+  @Column({ type: 'varchar', length: 200, nullable: true, name: 'location' })
+  location: string | null = null;
+
   @Index()
   @Column({ type: 'varchar', length: 16, default: 'open' })
   status!: string;

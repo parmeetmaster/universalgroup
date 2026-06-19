@@ -5,6 +5,7 @@ import {
 import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PakParseService } from './parse.service';
 import { PakDramaximaDriver } from './drivers/dramaxima.driver';
+import { PakDramaSpiceDriver } from './drivers/dramaspice.driver';
 import { PakParseOrchestratorService } from './scheduler/parse-orchestrator.service';
 import { ParseTier } from './scheduler/tier-classifier';
 import { CreateSourceDto } from './dto/create-source.dto';
@@ -20,6 +21,7 @@ export class PakParseController {
   constructor(
     private readonly svc: PakParseService,
     private readonly dramaxima: PakDramaximaDriver,
+    private readonly dramaSpice: PakDramaSpiceDriver,
     private readonly orchestrator: PakParseOrchestratorService,
   ) {}
 
@@ -97,6 +99,28 @@ export class PakParseController {
   })
   discover() {
     return this.orchestrator.runDiscovery();
+  }
+
+  @Post('dramaxima/repair-posters')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Fix dramaxima dramas with a logo/placeholder poster or a "… Episode N" ' +
+      'title: re-clean the title and re-resolve the poster from episode pages',
+  })
+  repairPosters() {
+    return this.dramaxima.repairPostersAndTitles();
+  }
+
+  @Post('dramaspice/homepage-sync')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Scrape DramaSpice homepage "Today\'s Episodes" and set ordered airDates ' +
+      'so Latest Releases rail matches the homepage order',
+  })
+  homepageSync() {
+    return this.dramaSpice.syncHomepageAirDates();
   }
 
   @Post('backfill-air-dates')

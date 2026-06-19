@@ -45,8 +45,14 @@ export class PakFcmService implements OnModuleInit {
     const dramaTopic = topicForDrama(dramaSlug);
     const body = `Episode ${episodeNumber} is now streaming`;
 
-    const buildMessage = (topic: string): admin.messaging.Message => ({
-      topic,
+    // Single send via a topic CONDITION instead of two separate topic sends.
+    // A device that follows the drama is subscribed to BOTH the global topic and
+    // the drama topic; FCM delivers a condition message only ONCE per device even
+    // when several of its topics match, so the same episode can never arrive twice.
+    const condition = `'${TOPIC_NEW_EPISODE}' in topics || '${dramaTopic}' in topics`;
+
+    const message: admin.messaging.Message = {
+      condition,
       notification: {
         title: dramaTitle,
         body,
@@ -67,29 +73,14 @@ export class PakFcmService implements OnModuleInit {
           defaultVibrateTimings: !silent,
         },
       },
-    });
+    };
 
     if (!this.app) {
-      this.logger.log(`[dry-run] ${dramaTitle} Ep${episodeNumber} -> ${TOPIC_NEW_EPISODE}, ${dramaTopic}`);
-      return { global: 'dry-run', drama: 'dry-run' };
+      this.logger.log(`[dry-run] ${dramaTitle} Ep${episodeNumber} -> (${condition})`);
+      return { messageId: 'dry-run' };
     }
 
-    const messaging = admin.messaging(this.app);
-    const [global, drama] = await Promise.allSettled([
-      messaging.send(buildMessage(TOPIC_NEW_EPISODE)),
-      messaging.send(buildMessage(dramaTopic)),
-    ]);
-
-    if (global.status === 'rejected') {
-      this.logger.warn(`Global topic send failed: ${global.reason}`);
-    }
-    if (drama.status === 'rejected') {
-      this.logger.warn(`Drama topic (${dramaTopic}) send failed: ${drama.reason}`);
-    }
-
-    return {
-      global: global.status === 'fulfilled' ? global.value : 'failed',
-      drama: drama.status === 'fulfilled' ? drama.value : 'failed',
-    };
+    const messageId = await admin.messaging(this.app).send(message);
+    return { messageId };
   }
 }

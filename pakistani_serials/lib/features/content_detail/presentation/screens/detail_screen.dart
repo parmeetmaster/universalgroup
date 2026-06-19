@@ -5,18 +5,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'package:url_launcher/url_launcher.dart';
-
 import '../../../../core/ads/ad_service.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/util/image_utils.dart' show resolveImageUrl, formatCount;
-import '../../../../core/util/watch_history.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../di/injection.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../../shared/data/api_service.dart';
 import '../../../shared/models/content_model.dart';
 import '../bloc/detail_bloc.dart';
 
@@ -33,6 +29,26 @@ class DetailScreen extends StatelessWidget {
   }
 }
 
+class _ActiveTabCubit extends Cubit<int> {
+  _ActiveTabCubit() : super(0);
+  void set(int v) => emit(v);
+}
+
+class _ExpandedCubit extends Cubit<bool> {
+  _ExpandedCubit() : super(false);
+  void toggle() => emit(!state);
+}
+
+class _ScrollerCubit extends Cubit<_ScrollerState> {
+  _ScrollerCubit() : super(const _ScrollerState());
+  void update(_ScrollerState s) => emit(s);
+}
+
+class _UseFallbackCubit extends Cubit<bool> {
+  _UseFallbackCubit() : super(false);
+  void set(bool v) => emit(v);
+}
+
 class _DetailView extends StatelessWidget {
   const _DetailView();
 
@@ -40,6 +56,15 @@ class _DetailView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
+      bottomNavigationBar: adsEnabled
+          ? const SafeArea(
+              top: false,
+              child: ColoredBox(
+                color: AppColors.bg,
+                child: AdService.descriptionBanner,
+              ),
+            )
+          : null,
       body: BlocBuilder<DetailBloc, DetailState>(
         builder: (ctx, state) {
           if (state.status == DetailStatus.loading ||
@@ -74,7 +99,11 @@ class _LoadedState extends State<_Loaded> {
   final ScrollController _scrollCtrl = ScrollController();
   final GlobalKey _relatedKey = GlobalKey();
   final GlobalKey _episodesKey = GlobalKey();
-  int _activeTab = 0;
+  final _ActiveTabCubit _activeTab = _ActiveTabCubit();
+  late final List<GlobalKey> _epTileKeys = List.generate(
+    widget.state.episodes.length,
+    (_) => GlobalKey(),
+  );
 
   @override
   void initState() {
@@ -86,6 +115,7 @@ class _LoadedState extends State<_Loaded> {
   void dispose() {
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
+    _activeTab.close();
     super.dispose();
   }
 
@@ -98,7 +128,7 @@ class _LoadedState extends State<_Loaded> {
     try {
       final topInViewport = ro.localToGlobal(Offset.zero).dy;
       final active = topInViewport < MediaQuery.of(context).size.height * 0.5 ? 1 : 0;
-      if (active != _activeTab) setState(() => _activeTab = active);
+      if (active != _activeTab.state) _activeTab.set(active);
     } catch (_) {}
   }
 
@@ -113,29 +143,13 @@ class _LoadedState extends State<_Loaded> {
     );
   }
 
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text('$feature coming soon'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ));
-  }
-
   void _saveAndPlay(BuildContext context, String slug, int season, EpisodeModel ep) {
-    final watchHistory = getIt<WatchHistoryService>();
-    watchHistory.saveLastPlayed(slug, season, ep.episodeNumber);
-    watchHistory.markWatched(slug, ep.episodeNumber);
-    setState(() {}); // refresh watched state
-    // Navigate first, then show ad on the new screen
+    context.read<DetailBloc>().add(DetailEpisodePlayed(
+      slug: slug,
+      seasonNumber: season,
+      episodeNumber: ep.episodeNumber,
+    ));
     context.push(AppRoutes.sources, extra: ep);
-    if (adsEnabled) {
-      // Small delay so sources screen renders first, then ad overlays it
-      Future<void>.delayed(const Duration(milliseconds: 500), () {
-        getIt<AdService>().showInterstitial();
-      });
-    }
   }
 
   Future<void> _shareDrama(BuildContext context, ContentModel content) async {
@@ -152,173 +166,200 @@ class _LoadedState extends State<_Loaded> {
     final state = widget.state;
     final c = state.content!;
     final topPad = MediaQuery.of(context).padding.top;
-    return Stack(
-      children: [
-        CustomScrollView(
-          controller: _scrollCtrl,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: _Hero(content: c)),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 2, AppSpacing.lg, 0),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _MetaRow(content: c),
-                  const SizedBox(height: 14),
-                  Builder(builder: (ctx) {
-                    final lp = state.lastPlayed;
-                    // Find last played episode in current list, fallback to first
-                    final targetEp = lp != null
-                        ? state.episodes.cast<EpisodeModel?>().firstWhere(
-                              (e) => e!.episodeNumber == lp.episodeNumber,
-                              orElse: () => null,
-                            ) ?? (state.episodes.isNotEmpty ? state.episodes.first : null)
-                        : (state.episodes.isNotEmpty ? state.episodes.first : null);
-                    final displaySeason = lp?.seasonNumber ?? state.currentSeason;
-                    final displayEp = targetEp?.episodeNumber ?? 1;
-                    return _PlayAction(
-                      content: c,
-                      hasEpisodes: state.episodes.isNotEmpty,
-                      currentSeason: displaySeason,
-                      epNumber: displayEp,
-                      isResume: lp != null,
-                      onPlay: () {
-                        if (targetEp != null) {
-                          _saveAndPlay(context, c.slug, state.currentSeason, targetEp);
-                        }
-                      },
-                    );
-                  }),
-                  const SizedBox(height: 10),
-                  _SecondaryActions(
-                    inWatchlist: state.inWatchlist,
-                    onToggleList: () => context
-                        .read<DetailBloc>()
-                        .add(DetailWatchlistToggled()),
-                    isLiked: state.isLiked,
-                    totalLikes: state.totalLikes,
-                    onLike: () => context.read<DetailBloc>().add(DetailLikeToggled()),
-                    onDownload: () => _showComingSoon(context, 'Download'),
-                    onShare: () => _shareDrama(context, c),
-                  ),
-                  const SizedBox(height: 18),
-                  if (c.synopsis != null && c.synopsis!.isNotEmpty)
-                    _Synopsis(text: c.synopsis!),
-                  if (c.genres != null && c.genres!.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    _GenreRow(genres: c.genres!),
-                  ],
-                  const SizedBox(height: 16),
-                  const SizedBox(height: 20),
-                  _TabsBar(
-                    tabs: [S.of(context)!.detailEpisodes, S.of(context)!.detailRelated],
-                    active: _activeTab,
-                    onTap: (i) {
-                      setState(() => _activeTab = i);
-                      _scrollTo(i == 0 ? _episodesKey : _relatedKey);
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  KeyedSubtree(key: _episodesKey, child: const SizedBox.shrink()),
-                  if (state.seasons.length > 1) ...[
-                    _SeasonsPicker(
-                      seasons: state.seasons,
-                      current: state.currentSeason,
-                      onPick: (n) => context
-                          .read<DetailBloc>()
-                          .add(DetailSeasonChanged(n)),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  if (state.episodes.isEmpty)
-                    const _EpisodeEmptyState()
-                  else
-                    ...state.episodes.asMap().entries.map(
-                          (e) => _EpisodeTile(
-                            episode: e.value,
-                            index: e.key,
-                            fallbackImageUrl:
-                                c.posterUrl ?? c.backdropUrl ?? '',
-                            isWatched: getIt<WatchHistoryService>()
-                                .isWatched(c.slug, e.value.episodeNumber),
-                            onTap: () => _saveAndPlay(
-                                context, c.slug, state.currentSeason, e.value),
-                          ),
-                        ),
-                  const SizedBox(height: 22),
-                ]),
-              ),
-            ),
-            if (state.related.isNotEmpty)
+    return BlocBuilder<_ActiveTabCubit, int>(
+      bloc: _activeTab,
+      builder: (context, activeTab) => Stack(
+        children: [
+          CustomScrollView(
+            controller: _scrollCtrl,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(child: _Hero(content: c)),
               SliverPadding(
-                key: _relatedKey,
-                padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg, 4, AppSpacing.lg, 0),
-                sliver: SliverGrid(
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 0.55,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => _RelatedCard(content: state.related[i]),
-                    childCount: state.related.length,
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 2, AppSpacing.lg, 0),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _MetaRow(content: c),
+                    const SizedBox(height: 14),
+                    Builder(builder: (ctx) {
+                      final lp = state.lastPlayed;
+                      final targetEp = lp != null
+                          ? state.episodes.cast<EpisodeModel?>().firstWhere(
+                                (e) => e!.episodeNumber == lp.episodeNumber,
+                                orElse: () => null,
+                              ) ?? (state.episodes.isNotEmpty ? state.episodes.first : null)
+                          : (state.episodes.isNotEmpty ? state.episodes.first : null);
+                      final displaySeason = lp?.seasonNumber ?? state.currentSeason;
+                      final displayEp = targetEp?.episodeNumber ?? 1;
+                      return _PlayAction(
+                        content: c,
+                        hasEpisodes: state.episodes.isNotEmpty,
+                        currentSeason: displaySeason,
+                        epNumber: displayEp,
+                        isResume: lp != null,
+                        onPlay: () {
+                          if (targetEp != null) {
+                            _saveAndPlay(context, c.slug, state.currentSeason, targetEp);
+                          }
+                        },
+                      );
+                    }),
+                    const SizedBox(height: 10),
+                    _SecondaryActions(
+                      inWatchlist: state.inWatchlist,
+                      onToggleList: () => context
+                          .read<DetailBloc>()
+                          .add(DetailWatchlistToggled()),
+                      isLiked: state.isLiked,
+                      totalLikes: state.totalLikes,
+                      onLike: () => context.read<DetailBloc>().add(DetailLikeToggled()),
+                      onShare: () => _shareDrama(context, c),
+                    ),
+                    const SizedBox(height: 18),
+                    if (c.synopsis != null && c.synopsis!.isNotEmpty)
+                      _Synopsis(text: c.synopsis!),
+                    if (c.genres != null && c.genres!.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      _GenreRow(genres: c.genres!),
+                    ],
+                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
+                    _TabsBar(
+                      tabs: [S.of(context)!.detailEpisodes, S.of(context)!.detailRelated],
+                      active: activeTab,
+                      onTap: (i) {
+                        _activeTab.set(i);
+                        _scrollTo(i == 0 ? _episodesKey : _relatedKey);
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    KeyedSubtree(key: _episodesKey, child: const SizedBox.shrink()),
+                    if (state.seasons.length > 1) ...[
+                      _SeasonsPicker(
+                        seasons: state.seasons,
+                        current: state.currentSeason,
+                        onPick: (n) => context
+                            .read<DetailBloc>()
+                            .add(DetailSeasonChanged(n)),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (state.episodes.isEmpty)
+                      const _EpisodeEmptyState()
+                    else
+                      ...state.episodes.asMap().entries.expand(
+                            (e) => [
+                              if (adsEnabled && e.key > 0 && e.key % 10 == 0)
+                                AdService.episodeListNativeAd,
+                              KeyedSubtree(
+                                key: _epTileKeys[e.key],
+                                child: _EpisodeTile(
+                                  episode: e.value,
+                                  index: e.key,
+                                  fallbackImageUrl:
+                                      c.posterUrl ?? c.backdropUrl ?? '',
+                                  isWatched: state.isEpisodeWatched(e.value.episodeNumber),
+                                  onTap: () => _saveAndPlay(
+                                      context, c.slug, state.currentSeason, e.value),
+                                ),
+                              ),
+                            ],
+                          ),
+                    if (adsEnabled && state.episodes.isNotEmpty)
+                      AdService.episodeListNativeAd,
+                    const SizedBox(height: 22),
+                  ]),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: SizedBox.shrink(key: _relatedKey),
+              ),
+              if (state.related.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg, 12, AppSpacing.lg, 10),
+                    child: Text(
+                      S.of(context)!.detailRelated,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
-              )
-            else
-              const SliverToBoxAdapter(child: SizedBox.shrink()),
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-            const SliverToBoxAdapter(child: SizedBox(height: 60)),
-          ],
-        ),
-        // Floating top bar (gradient fade)
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: Container(
-            height: topPad + 54,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.55),
-                  Colors.transparent,
-                ],
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg, 0, AppSpacing.lg, 0),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 14,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 0.55,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => _RelatedCard(content: state.related[i]),
+                      childCount: state.related.length,
+                    ),
+                  ),
+                ),
+              ]
+              else ...[
+                const SliverToBoxAdapter(child: SizedBox.shrink()),
+              ],
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              const SliverToBoxAdapter(child: SizedBox(height: 60)),
+            ],
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: topPad + 54,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.55),
+                    Colors.transparent,
+                  ],
+                ),
               ),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => context.pop(),
-                    icon: const _RoundIcon(icon: Icons.arrow_back_rounded),
-                  ),
-                  const Spacer(),
-                  const _CastButton(),
-                  IconButton(
-                    onPressed: () => _shareDrama(context, c),
-                    icon: const _RoundIcon(icon: Icons.share_rounded),
-                  ),
-                  const SizedBox(width: 6),
-                ],
+              child: SafeArea(
+                bottom: false,
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => context.pop(),
+                      icon: const _RoundIcon(icon: Icons.arrow_back_rounded),
+                    ),
+                    const Spacer(),
+                    const _CastButton(),
+                    IconButton(
+                      onPressed: () => _shareDrama(context, c),
+                      icon: const _RoundIcon(icon: Icons.share_rounded),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        // Fast episode scroller (right edge) — only for 20+ episodes
-        if (state.episodes.length >= 20 && _activeTab == 0)
-          _EpisodeFastScroller(
-            totalEpisodes: state.episodes.length,
-            scrollController: _scrollCtrl,
-            episodesKey: _episodesKey,
-          ),
-      ],
+          if (state.episodes.length >= 20)
+            _EpisodeFastScroller(
+              totalEpisodes: state.episodes.length,
+              scrollController: _scrollCtrl,
+              episodesStartKey: _episodesKey,
+              firstTileKey: _epTileKeys.first,
+              episodeTileKeys: _epTileKeys,
+            ),
+        ],
+      ),
     );
   }
 }
@@ -327,71 +368,120 @@ class _EpisodeFastScroller extends StatefulWidget {
   const _EpisodeFastScroller({
     required this.totalEpisodes,
     required this.scrollController,
-    required this.episodesKey,
+    required this.episodesStartKey,
+    required this.firstTileKey,
+    required this.episodeTileKeys,
   });
 
   final int totalEpisodes;
   final ScrollController scrollController;
-  final GlobalKey episodesKey;
+  final GlobalKey episodesStartKey;
+  final GlobalKey firstTileKey;
+  final List<GlobalKey> episodeTileKeys;
 
   @override
   State<_EpisodeFastScroller> createState() => _EpisodeFastScrollerState();
 }
 
+class _ScrollerState {
+  const _ScrollerState({
+    this.dragging = false,
+    this.dragFraction = 0,
+    this.scrollFraction = 0,
+    this.currentEp = 1,
+  });
+
+  final bool dragging;
+  final double dragFraction;
+  final double scrollFraction;
+  final int currentEp;
+
+  _ScrollerState copyWith({
+    bool? dragging,
+    double? dragFraction,
+    double? scrollFraction,
+    int? currentEp,
+  }) {
+    return _ScrollerState(
+      dragging: dragging ?? this.dragging,
+      dragFraction: dragFraction ?? this.dragFraction,
+      scrollFraction: scrollFraction ?? this.scrollFraction,
+      currentEp: currentEp ?? this.currentEp,
+    );
+  }
+}
+
 class _EpisodeFastScrollerState extends State<_EpisodeFastScroller> {
-  bool _dragging = false;
-  double _dragFraction = 0;
-  double _scrollFraction = 0;
-  int _currentEp = 1;
-  double? _episodesStartOffset;
+  final _ScrollerCubit _state = _ScrollerCubit();
   int _lastScrolledEp = -1;
+
+  // Cached: content offset where episodes start, and single tile height
+  double? _epStartOffset;
+  double? _tileHeight;
+  double _lastEmittedFraction = -1;
 
   @override
   void initState() {
     super.initState();
     widget.scrollController.addListener(_onListScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
   }
 
   @override
   void dispose() {
     widget.scrollController.removeListener(_onListScroll);
+    _state.close();
     super.dispose();
   }
 
-  void _onListScroll() {
-    if (_dragging || !mounted) return;
+  void _measure() {
     final sc = widget.scrollController;
     if (!sc.hasClients) return;
 
-    // Calculate fraction based on episode section, not whole page
-    final ctx = widget.episodesKey.currentContext;
-    if (ctx == null) return;
-    final ro = ctx.findRenderObject();
-    if (ro is! RenderBox || !ro.attached) return;
+    final startCtx = widget.episodesStartKey.currentContext;
+    if (startCtx != null) {
+      final ro = startCtx.findRenderObject();
+      if (ro is RenderBox && ro.attached) {
+        _epStartOffset = sc.offset + ro.localToGlobal(Offset.zero).dy;
+      }
+    }
 
-    final epStartInViewport = ro.localToGlobal(Offset.zero).dy;
-    final epStartOffset = sc.offset + epStartInViewport;
-    const tileHeight = 88.0;
-    final epTotalHeight = widget.totalEpisodes * tileHeight;
-
-    if (epTotalHeight <= 0) return;
-    final fraction = ((sc.offset - epStartOffset + 300) / epTotalHeight)
-        .clamp(0.0, 1.0);
-
-    setState(() => _scrollFraction = fraction);
+    final tileCtx = widget.firstTileKey.currentContext;
+    if (tileCtx != null) {
+      final ro = tileCtx.findRenderObject();
+      if (ro is RenderBox && ro.attached) {
+        _tileHeight = ro.size.height;
+      }
+    }
   }
 
-  void _cacheEpisodesStart() {
-    final ctx = widget.episodesKey.currentContext;
-    if (ctx == null || !widget.scrollController.hasClients) return;
-    final ro = ctx.findRenderObject();
-    if (ro is! RenderBox || !ro.attached) return;
-    _episodesStartOffset = widget.scrollController.offset +
-        ro.localToGlobal(Offset.zero).dy;
+  /// Scroll range that maps 0..1 to first..last episode visible.
+  /// Does NOT include ad heights — ads may or may not load, so excluding
+  /// them keeps the scroller accurate in both cases (minor drift when
+  /// ads load is acceptable; being very wrong when they don't is not).
+  double get _epRange {
+    final th = _tileHeight ?? 130; // fallback estimate
+    final sc = widget.scrollController;
+    final viewportH = sc.hasClients ? sc.position.viewportDimension : 800.0;
+    return (widget.totalEpisodes * th - viewportH + th * 2).clamp(1.0, double.infinity);
+  }
+
+  void _onListScroll() {
+    if (_state.state.dragging || !mounted) return;
+    final sc = widget.scrollController;
+    if (!sc.hasClients || sc.position.maxScrollExtent <= 0) return;
+
+    if (_epStartOffset == null || _tileHeight == null) _measure();
+    final start = _epStartOffset ?? 0;
+
+    final fraction = ((sc.offset - start) / _epRange).clamp(0.0, 1.0);
+
+    if ((fraction - _lastEmittedFraction).abs() < 0.005) return;
+    _lastEmittedFraction = fraction;
+    _state.update(_state.state.copyWith(scrollFraction: fraction));
   }
 
   void _onDragStart(double localY, double trackHeight) {
-    _cacheEpisodesStart();
     _lastScrolledEp = -1;
     _onDrag(localY, trackHeight);
   }
@@ -400,26 +490,33 @@ class _EpisodeFastScrollerState extends State<_EpisodeFastScroller> {
     final fraction = (localY / trackHeight).clamp(0.0, 1.0);
     final ep = (fraction * (widget.totalEpisodes - 1)).round() + 1;
 
-    setState(() {
-      _dragging = true;
-      _dragFraction = fraction;
-      _scrollFraction = fraction;
-      _currentEp = ep;
-    });
+    _state.update(_ScrollerState(
+      dragging: true,
+      dragFraction: fraction,
+      scrollFraction: fraction,
+      currentEp: ep,
+    ));
 
     if (ep == _lastScrolledEp) return;
     _lastScrolledEp = ep;
 
-    final startOffset = _episodesStartOffset;
-    if (startOffset == null || !widget.scrollController.hasClients) return;
-    const tileHeight = 88.0;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final target = startOffset + (ep - 1) * tileHeight - (screenHeight / 3);
-    widget.scrollController.animateTo(
-      target.clamp(0.0, widget.scrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 120),
-      curve: Curves.easeOut,
-    );
+    // Use key-based scrolling: scroll directly to the target episode tile
+    final targetIndex = (fraction * (widget.totalEpisodes - 1)).round();
+    final key = widget.episodeTileKeys[targetIndex];
+    if (key.currentContext != null) {
+      Scrollable.ensureVisible(
+        key.currentContext!,
+        alignment: 0.35,
+        duration: Duration.zero,
+      );
+    } else {
+      // Fallback for tiles not yet laid out
+      final sc = widget.scrollController;
+      if (!sc.hasClients) return;
+      if (_epStartOffset == null || _tileHeight == null) _measure();
+      final start = _epStartOffset ?? 0;
+      sc.jumpTo((start + fraction * _epRange).clamp(0.0, sc.position.maxScrollExtent));
+    }
   }
 
   @override
@@ -434,76 +531,81 @@ class _EpisodeFastScrollerState extends State<_EpisodeFastScroller> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final trackHeight = constraints.maxHeight;
-          final fraction = _dragging ? _dragFraction : _scrollFraction;
-          final thumbTop =
-              (fraction * (trackHeight - thumbH)).clamp(0.0, trackHeight - thumbH);
 
-          return GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onVerticalDragStart: (d) =>
-                _onDragStart(d.localPosition.dy, trackHeight),
-            onVerticalDragUpdate: (d) =>
-                _onDrag(d.localPosition.dy, trackHeight),
-            onVerticalDragEnd: (_) => setState(() => _dragging = false),
-            onVerticalDragCancel: () => setState(() => _dragging = false),
-            child: SizedBox(
-              width: 36,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // Track — flush right edge
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  // Seeker thumb — always visible, tracks scroll position
-                  Positioned(
-                    right: 0,
-                    top: thumbTop,
-                    child: Container(
-                      width: _dragging ? 10 : 6,
-                      height: thumbH,
-                      decoration: BoxDecoration(
-                        color: _dragging
-                            ? AppColors.accent
-                            : Colors.white.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                  // Bubble — only while dragging
-                  if (_dragging)
-                    Positioned(
-                      right: 20,
-                      top: thumbTop - 2,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          'Ep $_currentEp',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
+          return BlocBuilder<_ScrollerCubit, _ScrollerState>(
+            bloc: _state,
+            builder: (context, s) {
+              final fraction = s.dragging ? s.dragFraction : s.scrollFraction;
+              final thumbTop =
+                  (fraction * (trackHeight - thumbH)).clamp(0.0, trackHeight - thumbH);
+
+              return Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (e) =>
+                    _onDragStart(e.localPosition.dy, trackHeight),
+                onPointerMove: (e) =>
+                    _onDrag(e.localPosition.dy, trackHeight),
+                onPointerUp: (_) =>
+                    _state.update(_state.state.copyWith(dragging: false)),
+                onPointerCancel: (_) =>
+                    _state.update(_state.state.copyWith(dragging: false)),
+                child: SizedBox(
+                  width: 36,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
+                      Positioned(
+                        right: 0,
+                        top: thumbTop,
+                        child: Container(
+                          width: s.dragging ? 10 : 6,
+                          height: thumbH,
+                          decoration: BoxDecoration(
+                            color: s.dragging
+                                ? AppColors.accent
+                                : Colors.white.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                      if (s.dragging)
+                        Positioned(
+                          right: 20,
+                          top: thumbTop - 2,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'Ep ${s.currentEp}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
           );
         },
       ),
@@ -820,7 +922,6 @@ class _SecondaryActions extends StatelessWidget {
     required this.isLiked,
     required this.totalLikes,
     required this.onLike,
-    required this.onDownload,
     required this.onShare,
   });
   final bool inWatchlist;
@@ -828,7 +929,6 @@ class _SecondaryActions extends StatelessWidget {
   final bool isLiked;
   final int totalLikes;
   final VoidCallback onLike;
-  final VoidCallback onDownload;
   final VoidCallback onShare;
 
   @override
@@ -850,7 +950,6 @@ class _SecondaryActions extends StatelessWidget {
             onTap: onLike,
           ),
         ),
-        Expanded(child: _Btn(icon: Icons.file_download_outlined, label: 'Download', onTap: onDownload)),
         Expanded(child: _Btn(icon: Icons.share_outlined, label: 'Share', onTap: onShare)),
       ],
     );
@@ -898,40 +997,49 @@ class _Synopsis extends StatefulWidget {
 }
 
 class _SynopsisState extends State<_Synopsis> {
-  bool _expanded = false;
+  final _ExpandedCubit _expanded = _ExpandedCubit();
+
+  @override
+  void dispose() {
+    _expanded.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => setState(() => _expanded = !_expanded),
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AnimatedSize(
-            duration: const Duration(milliseconds: 180),
-            alignment: Alignment.topCenter,
-            child: Text(
-              widget.text,
-              maxLines: _expanded ? 12 : 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13.5,
-                height: 1.45,
+    return BlocBuilder<_ExpandedCubit, bool>(
+      bloc: _expanded,
+      builder: (context, expanded) => GestureDetector(
+        onTap: () => _expanded.toggle(),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              alignment: Alignment.topCenter,
+              child: Text(
+                widget.text,
+                maxLines: expanded ? 12 : 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13.5,
+                  height: 1.45,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _expanded ? 'Show less' : 'Read more',
-            style: const TextStyle(
-              color: AppColors.accent,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+            const SizedBox(height: 4),
+            Text(
+              expanded ? 'Show less' : 'Read more',
+              style: const TextStyle(
+                color: AppColors.accent,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1171,7 +1279,7 @@ class _EpisodeTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    episode.title ?? 'Episode ${episode.episodeNumber}',
+                    'Episode ${episode.episodeNumber}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1230,7 +1338,6 @@ class _EpisodeTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            _DownloadButton(episodeId: episode.id),
           ],
         ),
       ),
@@ -1318,31 +1425,42 @@ class _EpisodeThumb extends StatefulWidget {
 }
 
 class _EpisodeThumbState extends State<_EpisodeThumb> {
-  bool _useFallback = false;
+  final _UseFallbackCubit _useFallback = _UseFallbackCubit();
 
-  String? get _url {
-    if (!_useFallback && widget.thumbnailUrl != null) return widget.thumbnailUrl;
+  @override
+  void dispose() {
+    _useFallback.close();
+    super.dispose();
+  }
+
+  String? _resolveUrl(bool useFallback) {
+    if (!useFallback && widget.thumbnailUrl != null) return widget.thumbnailUrl;
     return widget.fallbackUrl;
   }
 
   @override
   Widget build(BuildContext context) {
-    final url = _url;
-    if (url == null || url.isEmpty) {
-      return Container(color: AppColors.surfaceElevated);
-    }
-    return CachedNetworkImage(
-      imageUrl: url,
-      fit: BoxFit.cover,
-      placeholder: (_, __) => Container(color: AppColors.surfaceElevated),
-      errorWidget: (_, __, ___) {
-        if (!_useFallback && widget.fallbackUrl != null && widget.fallbackUrl != widget.thumbnailUrl) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _useFallback = true);
-          });
+    return BlocBuilder<_UseFallbackCubit, bool>(
+      bloc: _useFallback,
+      builder: (context, useFallback) {
+        final url = _resolveUrl(useFallback);
+        if (url == null || url.isEmpty) {
           return Container(color: AppColors.surfaceElevated);
         }
-        return Container(color: AppColors.surfaceElevated);
+        return CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => Container(color: AppColors.surfaceElevated),
+          errorWidget: (_, __, ___) {
+            if (!useFallback && widget.fallbackUrl != null && widget.fallbackUrl != widget.thumbnailUrl) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _useFallback.set(true);
+              });
+              return Container(color: AppColors.surfaceElevated);
+            }
+            return Container(color: AppColors.surfaceElevated);
+          },
+        );
       },
     );
   }
@@ -1370,77 +1488,6 @@ class _HeroPlaceholder extends StatelessWidget {
   }
 }
 
-class _DownloadButton extends StatefulWidget {
-  const _DownloadButton({required this.episodeId});
-  final String episodeId;
-
-  @override
-  State<_DownloadButton> createState() => _DownloadButtonState();
-}
-
-class _DownloadButtonState extends State<_DownloadButton> {
-  bool _loading = false;
-
-  Future<void> _onTap() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    try {
-      final api = getIt<ApiService>();
-      final servers = await api.resolveEpisode(widget.episodeId);
-      // Find first MP4/HLS server URL
-      final server = servers.isNotEmpty ? servers.first : null;
-      if (server == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(const SnackBar(
-              content: Text('No download source available'),
-              duration: Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ));
-        }
-        return;
-      }
-      // Open in Chrome for download
-      final uri = Uri.parse(server.url);
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            content: Text('Download failed: $e'),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ));
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _onTap,
-      child: _loading
-          ? const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white54,
-              ),
-            )
-          : const Icon(
-              Icons.file_download_outlined,
-              color: Colors.white54,
-              size: 22,
-            ),
-    );
-  }
-}
 
 class _CastButton extends StatelessWidget {
   const _CastButton();

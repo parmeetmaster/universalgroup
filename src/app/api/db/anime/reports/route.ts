@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
       params.push(status);
     }
     if (q) {
-      where += " AND (error_title LIKE ? OR error_message LIKE ? OR device_name LIKE ? OR download_url LIKE ?)";
+      where += " AND (error_title LIKE ? OR error_message LIKE ? OR device_name LIKE ? OR download_url LIKE ? OR location LIKE ?)";
       const like = `%${q}%`;
-      params.push(like, like, like, like);
+      params.push(like, like, like, like, like);
     }
 
     const countRows = await query("anime", `SELECT COUNT(*) as count FROM error_reports ${where}`, params) as Record<string, number>[];

@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/ads/ad_service.dart';
@@ -9,43 +10,24 @@ import '../../core/theme/spacing.dart';
 import '../../core/util/image_utils.dart';
 import '../../core/widgets/error_view.dart';
 import '../../di/injection.dart';
-import '../shared/data/api_service.dart';
 import '../shared/models/content_model.dart';
+import 'browse_cubit.dart';
 
-class BrowseScreen extends StatefulWidget {
+class BrowseScreen extends StatelessWidget {
   const BrowseScreen({super.key, this.initialGenre});
   final String? initialGenre;
 
   @override
-  State<BrowseScreen> createState() => _BrowseScreenState();
-}
-
-class _BrowseScreenState extends State<BrowseScreen> {
-  late Future<List<GenreModel>> _genres;
-  late Future<List<ContentModel>> _dramas;
-  String? _active;
-
-  @override
-  void initState() {
-    super.initState();
-    _active = widget.initialGenre;
-    _genres = getIt<ApiService>().genres();
-    _load();
-  }
-
-  void _load() {
-    _dramas = getIt<ApiService>().listContent(
-      genreSlug: _active,
-      limit: 50,
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<BrowseCubit>()..init(initialGenre: initialGenre),
+      child: const _BrowseView(),
     );
   }
+}
 
-  void _select(String? slug) {
-    setState(() {
-      _active = slug;
-      _load();
-    });
-  }
+class _BrowseView extends StatelessWidget {
+  const _BrowseView();
 
   @override
   Widget build(BuildContext context) {
@@ -68,10 +50,11 @@ class _BrowseScreenState extends State<BrowseScreen> {
                 ),
               ),
             ),
-            FutureBuilder<List<GenreModel>>(
-              future: _genres,
-              builder: (ctx, snap) {
-                final items = snap.data ?? const <GenreModel>[];
+            BlocBuilder<BrowseCubit, BrowseState>(
+              buildWhen: (p, c) =>
+                  p.genres != c.genres || p.activeGenre != c.activeGenre,
+              builder: (ctx, state) {
+                final items = state.genres;
                 return SizedBox(
                   height: 52,
                   child: ListView.separated(
@@ -81,18 +64,19 @@ class _BrowseScreenState extends State<BrowseScreen> {
                     itemCount: items.length + 1,
                     separatorBuilder: (_, __) => const SizedBox(width: 8),
                     itemBuilder: (ctx, i) {
+                      final cubit = context.read<BrowseCubit>();
                       if (i == 0) {
                         return _GenrePill(
                           label: 'All',
-                          active: _active == null,
-                          onTap: () => _select(null),
+                          active: state.activeGenre == null,
+                          onTap: () => cubit.selectGenre(null),
                         );
                       }
                       final g = items[i - 1];
                       return _GenrePill(
                         label: g.name,
-                        active: _active == g.slug,
-                        onTap: () => _select(g.slug),
+                        active: state.activeGenre == g.slug,
+                        onTap: () => cubit.selectGenre(g.slug),
                       );
                     },
                   ),
@@ -100,23 +84,24 @@ class _BrowseScreenState extends State<BrowseScreen> {
               },
             ),
             Expanded(
-              child: FutureBuilder<List<ContentModel>>(
-                future: _dramas,
-                builder: (ctx, snap) {
-                  if (snap.connectionState != ConnectionState.done) {
+              child: BlocBuilder<BrowseCubit, BrowseState>(
+                buildWhen: (p, c) =>
+                    p.status != c.status || p.dramas != c.dramas,
+                builder: (ctx, state) {
+                  if (state.status == BrowseStatus.loading) {
                     return const Center(
-                        child: CircularProgressIndicator(
-                      color: AppColors.accent,
-                    ));
-                  }
-                  if (snap.hasError) {
-                    return ErrorView(
-                      message: snap.error.toString(),
-                      onRetry: () => setState(_load),
+                      child: CircularProgressIndicator(
+                        color: AppColors.accent,
+                      ),
                     );
                   }
-                  final items = snap.data ?? const [];
-                  if (items.isEmpty) {
+                  if (state.status == BrowseStatus.error) {
+                    return ErrorView(
+                      message: state.error ?? 'Unknown error',
+                      onRetry: () => ctx.read<BrowseCubit>().retry(),
+                    );
+                  }
+                  if (state.dramas.isEmpty) {
                     return const Center(
                       child: Text(
                         'No dramas in this genre yet.',
@@ -124,7 +109,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                       ),
                     );
                   }
-                  return _BrowseGridWithAds(items: items);
+                  return _BrowseGridWithAds(items: state.dramas);
                 },
               ),
             ),
@@ -222,42 +207,41 @@ class _BrowseGridWithAds extends StatelessWidget {
   const _BrowseGridWithAds({required this.items});
   final List<ContentModel> items;
 
-  // 3 rows x 3 cols = 9 items per chunk, then 1 ad slot
   static const _chunkSize = 9;
 
-  int get _sectionCount {
-    if (items.isEmpty) return 0;
-    final chunks = (items.length / _chunkSize).ceil();
-    // chunks + (chunks - 1) ads
-    return chunks + (chunks - 1).clamp(0, chunks);
+  List<_BrowseSection> _buildSections() {
+    final sections = <_BrowseSection>[];
+    for (var start = 0; start < items.length; start += _chunkSize) {
+      final end = (start + _chunkSize).clamp(0, items.length);
+      sections.add(_BrowseSection.grid(items.sublist(start, end), start));
+      sections.add(const _BrowseSection.ad());
+    }
+    return sections;
   }
 
   @override
   Widget build(BuildContext context) {
+    final sections = _buildSections();
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 90),
-      itemCount: _sectionCount,
-      itemBuilder: (ctx, sectionIndex) {
-        // Even indices = grid chunk, odd indices = ad
-        if (sectionIndex.isOdd) {
+      itemCount: sections.length,
+      itemBuilder: (ctx, index) {
+        final section = sections[index];
+        if (section.isAd) {
           return const Padding(
-            key: ValueKey('browse-ad'),
             padding: EdgeInsets.symmetric(vertical: 8),
             child: AdService.browseNativeAd,
           );
         }
 
-        final chunkIndex = sectionIndex ~/ 2;
-        final start = chunkIndex * _chunkSize;
-        final end = (start + _chunkSize).clamp(0, items.length);
-        final chunk = items.sublist(start, end);
-
+        final chunk = section.chunk!;
+        final isFirst = section.start == 0;
         return GridView.builder(
-          key: ValueKey('browse-chunk-$chunkIndex'),
+          key: ValueKey('browse-chunk-${section.start}'),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(
-            AppSpacing.lg, chunkIndex == 0 ? 10 : 0, AppSpacing.lg, 18,
+            AppSpacing.lg, isFirst ? 10 : 0, AppSpacing.lg, 18,
           ),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
@@ -274,4 +258,16 @@ class _BrowseGridWithAds extends StatelessWidget {
       },
     );
   }
+}
+
+class _BrowseSection {
+  const _BrowseSection.grid(this.chunk, this.start) : isAd = false;
+  const _BrowseSection.ad()
+      : chunk = null,
+        start = -1,
+        isAd = true;
+
+  final List<ContentModel>? chunk;
+  final int start;
+  final bool isAd;
 }

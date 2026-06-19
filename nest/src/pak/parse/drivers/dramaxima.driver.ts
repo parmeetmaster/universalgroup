@@ -57,14 +57,16 @@ export class PakDramaximaDriver {
   async discoverNewDramas(): Promise<DiscoverySummary> {
     const summary: DiscoverySummary = { found: 0, newDramas: 0, created: [], failed: [] };
 
-    const xml = await this.fetchHtml('https://dramaxima.com/category-sitemap.xml');
-    const slugs: string[] = [];
-    const locRx = /<loc>https:\/\/dramaxima\.com\/([a-z0-9][a-z0-9-]*)\/<\/loc>/gi;
-    let m: RegExpExecArray | null;
-    while ((m = locRx.exec(xml)) !== null) {
-      const s = m[1];
-      if (s !== 'articles' && s !== 'uncategorized') slugs.push(s);
-    }
+    // Two discovery sources, merged:
+    //  A) category-sitemap.xml \u2014 series/category pages.
+    //  B) post sitemap (episode URLs) \u2014 catches brand-new series whose first
+    //     episode is already live before the category sitemap refreshes.
+    const slugs = [
+      ...new Set([
+        ...(await this.discoverCategorySlugs()),
+        ...(await this.discoverEpisodeSlugs()),
+      ]),
+    ];
     summary.found = slugs.length;
     if (!slugs.length) return summary;
 
@@ -81,50 +83,7 @@ export class PakDramaximaDriver {
 
     for (const slug of newSlugs) {
       try {
-        const landingUrl = `https://dramaxima.com/${slug}/`;
-        const html = await this.fetchHtml(landingUrl);
-
-        const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-        let title = slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-        if (titleMatch?.[1]) {
-          title = titleMatch[1]
-            .replace(/\s*Drama\s*Online\s*$/i, '')
-            .replace(/\s*[-\u2013|].*$/, '')
-            .trim() || title;
-        }
-
-        const main = this.extractMainSection(html);
-        const imgMatch = main.match(
-          /src="(https:\/\/dramaxima\.com\/wp-content\/uploads\/[^"]*\.(?:jpg|jpeg|png|webp))"/i,
-        );
-        const posterUrl = imgMatch?.[1] ?? null;
-
-        const drama = await this.dramaRepo.save(
-          this.dramaRepo.create({
-            title,
-            slug,
-            sourceUrl: landingUrl,
-            posterUrl,
-            backdropUrl: posterUrl,
-            status: DramaStatusEnum.ONGOING,
-            isPublished: 1,
-            language: 'ur',
-          }),
-        );
-
-        // Ensure the poster loads and is hosted on ImageBan so it never goes missing
-        try {
-          await this.posterHealth.ensurePosterHosted(drama.id, title, posterUrl);
-        } catch (posterErr) {
-          this.logger.warn(`Poster hosting for ${slug} failed: ${(posterErr as Error).message}`);
-        }
-
-        try {
-          await this.importDrama(drama);
-        } catch (importErr) {
-          this.logger.warn(`Episode import for new drama ${slug} failed: ${(importErr as Error).message}`);
-        }
-
+        const title = await this.createDramaFromSlug(slug);
         summary.newDramas++;
         summary.created.push(slug);
         this.logger.log(`Created new drama: ${title} (${slug})`);
@@ -135,6 +94,306 @@ export class PakDramaximaDriver {
     }
 
     return summary;
+  }
+
+  // Series slugs from the category sitemap (series landing pages).
+  private async discoverCategorySlugs(): Promise<string[]> {
+    try {
+      const xml = await this.fetchHtml('https://dramaxima.com/category-sitemap.xml');
+      const slugs: string[] = [];
+      const locRx = /<loc>https:\/\/dramaxima\.com\/([a-z0-9][a-z0-9-]*)\/<\/loc>/gi;
+      let m: RegExpExecArray | null;
+      while ((m = locRx.exec(xml)) !== null) {
+        const s = m[1];
+        if (s !== 'articles' && s !== 'uncategorized') slugs.push(s);
+      }
+      return [...new Set(slugs)];
+    } catch (err) {
+      this.logger.warn(`category sitemap fetch failed: ${(err as Error).message}`);
+      return [];
+    }
+  }
+
+  // Series slugs derived from episode URLs in the post sitemap, e.g.
+  // `/marg-e-wafa-episode-1/` \u2192 `marg-e-wafa`.
+  private async discoverEpisodeSlugs(): Promise<string[]> {
+    const sitemap = await this.loadSitemap();
+    const slugs = new Set<string>();
+    const rx = /^https:\/\/dramaxima\.com\/(.+?)-episode-\d+\/?$/i;
+    for (const entry of sitemap) {
+      const m = entry.url.match(rx);
+      if (m?.[1]) slugs.add(this.stripFinaleQualifier(m[1]));
+    }
+    return [...slugs];
+  }
+
+  // Finale episodes use qualified URLs like `{slug}-2nd-last-episode-N`, which
+  // would otherwise look like a separate series. Strip the qualifier so they map
+  // back to the real drama. Only strip when a real multi-token slug remains, so a
+  // genuine title ending in "last" (e.g. `the-last`) is left untouched.
+  private stripFinaleQualifier(prefix: string): string {
+    // Ordinal finale (e.g. `-2nd-last`, `-3rd-last`) is never part of a real
+    // title — always strip it back to the base series.
+    const ordinal = prefix.replace(/-\d+(?:st|nd|rd|th)-last$/i, '');
+    if (ordinal !== prefix) return ordinal;
+    // Plain `-last` is ambiguous; only strip when a multi-token base remains so a
+    // genuine title ending in "last" (e.g. `the-last`) is left untouched.
+    const plain = prefix.replace(/-last$/i, '');
+    return plain !== prefix && plain.includes('-') ? plain : prefix;
+  }
+
+  // Title-cases a slug, e.g. `marg-e-wafa` \u2192 `Marg E Wafa`.
+  private titleFromSlug(slug: string): string {
+    return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  // Cleans a raw <title>/og:title into a series name: drops the site suffix and
+  // any trailing "Episode N" so it isn't stored/searched as the drama title.
+  private cleanTitle(raw: string, slug: string): string {
+    const t = raw
+      .replace(/\s*Drama\s*Online\s*$/i, '')
+      .replace(/\s*[-\u2013|].*$/, '')
+      .replace(/\s*[-\u2013]?\s*Episode\s*\d+.*$/i, '')
+      .trim();
+    return t || this.titleFromSlug(slug);
+  }
+
+  // dramaxima site chrome (logo/favicon) that isn't a real poster. NOTE:
+  // "Untitled-design-N" files are NOT junk — they're real Canva-exported posters.
+  private isJunkImage(url: string): boolean {
+    return /dramaxima(@2x)?\.png|\/dx\.png|favicon|cropped-|\/logo/i.test(url);
+  }
+
+  // Authoritative dramaxima poster: a post's WordPress featured image — exactly
+  // the thumbnail the site itself shows for that drama. Returns null when the
+  // post has no featured image (placeholder) or it's site chrome.
+  private async wpFeaturedImage(postSlug: string): Promise<string | null> {
+    try {
+      const res = await fetch(
+        `https://dramaxima.com/wp-json/wp/v2/posts?slug=${encodeURIComponent(
+          postSlug,
+        )}&_embed=wp:featuredmedia`,
+        { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(15000) },
+      );
+      if (!res.ok) return null;
+      const posts = (await res.json()) as Array<{
+        _embedded?: { 'wp:featuredmedia'?: Array<{ source_url?: string }> };
+      }>;
+      const url = posts?.[0]?._embedded?.['wp:featuredmedia']?.[0]?.source_url;
+      return url && !this.isJunkImage(url) ? url : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // First non-junk image inside the series landing page's article body — the big
+  // poster dramaxima renders next to the description.
+  private extractEntryPoster(html: string): string | null {
+    const ec = html.match(/entry-content[^>]*>([\s\S]*?)(?:<footer|<\/article|<aside)/i);
+    const scope = ec ? ec[1] : '';
+    const rx =
+      /(?:data-src|data-lazy-src|src)="(https:\/\/dramaxima\.com\/wp-content\/uploads\/[^" ]+?\.(?:jpg|jpeg|png|webp))/gi;
+    let m: RegExpExecArray | null;
+    while ((m = rx.exec(scope)) !== null) {
+      if (!this.isJunkImage(m[1])) return m[1];
+    }
+    return null;
+  }
+
+  // Trusted poster domains for the online fallback — keeps the search safe by
+  // rejecting random/unsafe image hits for ambiguous Urdu drama titles.
+  private static readonly POSTER_DOMAINS =
+    /i\.pinimg\.com|hum\.tv|harpalgeo|arydigital|geo\.tv|wikipedia|wikimedia|reviewit|pakistanitv|dramaonline|mdramalist|themoviedb|tmdb/i;
+
+  // Last resort: a safe image search restricted to trusted drama-poster domains.
+  // Bing's results vary per query, so we try a few phrasings until one lands.
+  private async searchOnlinePoster(title: string): Promise<string | null> {
+    const suffixes = [
+      'Pakistani drama poster',
+      'Hum TV drama',
+      'ARY drama',
+      'Geo TV drama',
+      'drama poster',
+    ];
+    for (const suffix of suffixes) {
+      try {
+        const q = encodeURIComponent(`${title} ${suffix}`);
+        const html = await this.fetchHtml(`https://www.bing.com/images/search?q=${q}`);
+        const rx = /murl&quot;:&quot;(https?:\/\/[^&]+?\.(?:jpg|jpeg|png|webp))/gi;
+        let m: RegExpExecArray | null;
+        while ((m = rx.exec(html)) !== null) {
+          const u = m[1];
+          if (PakDramaximaDriver.POSTER_DOMAINS.test(u) && (await this.isImageOk(u))) {
+            return u;
+          }
+        }
+      } catch {
+        // try next phrasing
+      }
+    }
+    return null;
+  }
+
+  private async isImageOk(url: string): Promise<boolean> {
+    try {
+      const res = await fetch(url, {
+        method: 'HEAD',
+        headers: { 'User-Agent': UA },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) return false;
+      const len = Number(res.headers.get('content-length') ?? '0');
+      return len === 0 || len > 8000; // skip tiny icons; allow unknown length
+    } catch {
+      return false;
+    }
+  }
+
+  // Resolves a drama's poster, best source first:
+  //   1. dramaxima WP featured image of its newest episodes (authoritative)
+  //   2. the big image on the series landing page (follows slug redirects)
+  //   3. a safe online image search restricted to trusted domains
+  private async resolvePoster(
+    dramaId: string,
+    slug: string,
+    title: string,
+  ): Promise<string | null> {
+    const eps = await this.episodeRepo.find({
+      where: { dramaId },
+      order: { number: 'DESC' },
+      take: 4,
+    });
+    for (const ep of eps) {
+      if (!ep.sourceUrl) continue;
+      const postSlug = ep.sourceUrl
+        .replace(/^https?:\/\/dramaxima\.com\//i, '')
+        .replace(/\/+$/, '');
+      const img = await this.wpFeaturedImage(postSlug);
+      if (img) return img;
+    }
+
+    try {
+      const img = this.extractEntryPoster(
+        await this.fetchHtml(`https://dramaxima.com/${slug}/`),
+      );
+      if (img) return img;
+    } catch {
+      // landing unavailable
+    }
+
+    return this.searchOnlinePoster(title);
+  }
+
+  // Clears poster/backdrop so the app shows its own clean fallback instead of a
+  // logo or a wrong drama's image.
+  private async clearPoster(dramaId: string): Promise<void> {
+    await this.dramaRepo.update(dramaId, {
+      posterUrl: null,
+      backdropUrl: null,
+      posterOriginalUrl: null,
+      backdropOriginalUrl: null,
+      posterImagebanId: null,
+      backdropImagebanId: null,
+      posterHosted: 0,
+      backdropHosted: 0,
+    });
+  }
+
+  // Creates a Drama row for a slug, imports episodes, and hosts its poster.
+  // Returns the resolved title.
+  private async createDramaFromSlug(slug: string): Promise<string> {
+    const landingUrl = `https://dramaxima.com/${slug}/`;
+
+    // Title from the landing page when available, else derived from the slug.
+    // Brand-new series may not have a landing page yet, so this is best-effort.
+    let title = this.titleFromSlug(slug);
+    try {
+      const html = await this.fetchHtml(landingUrl);
+      const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+      if (titleMatch?.[1]) title = this.cleanTitle(titleMatch[1], slug);
+    } catch {
+      // No landing page \u2014 slug-based title is fine.
+    }
+
+    const drama = await this.dramaRepo.save(
+      this.dramaRepo.create({
+        title,
+        slug,
+        sourceUrl: landingUrl,
+        status: DramaStatusEnum.ONGOING,
+        isPublished: 1,
+        language: 'ur',
+      }),
+    );
+
+    // Import episodes first so we have a real episode page to read the poster
+    // from; fall back to PosterHealth's external sources when none is found.
+    try {
+      await this.importDrama(drama);
+    } catch (importErr) {
+      this.logger.warn(`Episode import for new drama ${slug} failed: ${(importErr as Error).message}`);
+    }
+
+    try {
+      const poster = await this.resolvePoster(drama.id, slug, title);
+      if (poster) await this.posterHealth.ensurePosterHosted(drama.id, title, poster);
+    } catch (posterErr) {
+      this.logger.warn(`Poster hosting for ${slug} failed: ${(posterErr as Error).message}`);
+    }
+
+    return title;
+  }
+
+  // Repairs dramaxima dramas with a junk (logo/placeholder) poster or a polluted
+  // "\u2026 Episode N" title: re-cleans the title and re-resolves the poster.
+  async repairPostersAndTitles(): Promise<{
+    checked: number;
+    repaired: string[];
+    failed: string[];
+  }> {
+    const dramas = await this.dramaRepo
+      .createQueryBuilder('d')
+      .where('d.sourceUrl LIKE :u', { u: 'https://dramaxima.com/%' })
+      .getMany();
+
+    const result = { checked: 0, repaired: [] as string[], failed: [] as string[] };
+    for (const drama of dramas) {
+      result.checked++;
+      const orig = drama.posterOriginalUrl ?? '';
+      const titleDirty = /\bEpisode\s*\d+/i.test(drama.title ?? '');
+      const posterJunk = this.isJunkImage(orig);
+      // A poster taken from the online fallback is replaceable: prefer the
+      // drama's authoritative dramaxima poster if one now exists.
+      const fromOnline = PakDramaximaDriver.POSTER_DOMAINS.test(orig);
+      const posterBad = posterJunk || !drama.posterUrl || fromOnline;
+      if (!titleDirty && !posterBad) continue;
+
+      try {
+        const title = titleDirty
+          ? this.cleanTitle(drama.title ?? '', drama.slug)
+          : drama.title ?? this.titleFromSlug(drama.slug);
+        if (titleDirty) await this.dramaRepo.update(drama.id, { title });
+
+        if (posterBad) {
+          const poster = await this.resolvePoster(drama.id, drama.slug, title);
+          // Replace when we have a poster — but don't swap one online guess for
+          // another (keeps the picture stable across runs); only upgrade an
+          // online poster to a dramaxima one.
+          const isDramaxima = !!poster && /dramaxima\.com/i.test(poster);
+          if (poster && (!fromOnline || isDramaxima)) {
+            await this.posterHealth.ensurePosterHosted(drama.id, title, poster);
+          } else if (posterJunk && !poster) {
+            // No real poster found and the current one is the logo → clear it.
+            await this.clearPoster(drama.id);
+          }
+        }
+        result.repaired.push(drama.slug);
+      } catch (err) {
+        result.failed.push(drama.slug);
+        this.logger.warn(`Repair failed for ${drama.slug}: ${(err as Error).message}`);
+      }
+    }
+    return result;
   }
 
   async importBySlug(slug: string): Promise<ImportSummary> {
@@ -187,7 +446,9 @@ export class PakDramaximaDriver {
       sitemap.map((e) => e.url),
     );
     if (!prefix) return null;
-    const matcher = new RegExp(`/${this.escapeRe(prefix)}-episode-\\d+/?$`);
+    const matcher = new RegExp(
+      `/${this.escapeRe(prefix)}(?:-(?:\\d+(?:st|nd|rd|th)-)?last)?-episode-\\d+/?$`,
+    );
     let max: Date | null = null;
     for (const e of sitemap) {
       if (!e.lastmod) continue;
@@ -245,7 +506,8 @@ export class PakDramaximaDriver {
         try {
           let ep = byNum.get(link.number);
           // Source-provided air date (sitemap lastmod). For a brand-new episode
-          // fall back to now, since the poller only discovers it once it aired.
+          // fall back to now — the scraper processes dramas sequentially so the
+          // natural insert order provides a meaningful secondary sort.
           const sourceAirDate = link.lastmod ?? null;
           if (!ep) {
             ep = await this.episodeRepo.save(
@@ -266,9 +528,15 @@ export class PakDramaximaDriver {
               ep.sourceUrl = link.url;
               changed = true;
             }
-            if (!ep.airDate && sourceAirDate) {
-              ep.airDate = sourceAirDate;
-              changed = true;
+            // Update airDate when the source re-published (trailer → real episode).
+            // A newer lastmod means the content was replaced, so refresh the date
+            // so the episode appears in "Latest Releases" correctly.
+            if (sourceAirDate) {
+              const newDate = new Date(sourceAirDate);
+              if (!ep.airDate || newDate.getTime() > ep.airDate.getTime()) {
+                ep.airDate = newDate;
+                changed = true;
+              }
             }
             if (changed) await this.episodeRepo.save(ep);
           }
@@ -396,7 +664,11 @@ export class PakDramaximaDriver {
     const prefix = await this.deriveEpisodePrefix(dramaSlug, landingUrl, urls);
     if (!prefix) return [];
 
-    const matcher = new RegExp(`/${this.escapeRe(prefix)}-episode-(\\d+)/?$`);
+    // Allow an optional finale qualifier (e.g. `-2nd-last`, `-last`) between the
+    // prefix and `-episode-N`, so finale URLs map to the right episode number.
+    const matcher = new RegExp(
+      `/${this.escapeRe(prefix)}(?:-(?:\\d+(?:st|nd|rd|th)-)?last)?-episode-(\\d+)/?$`,
+    );
     const found = new Map<number, { url: string; lastmod: Date | null }>();
     for (const entry of sitemap) {
       const m = entry.url.match(matcher);
@@ -416,14 +688,15 @@ export class PakDramaximaDriver {
         const html = await this.fetchHtml(pageUrl);
         const main = this.extractMainSection(html);
         const linkRx = new RegExp(
-          `https://dramaxima\\.com/${this.escapeRe(prefix)}-episode-(\\d+)/?`,
+          `https://dramaxima\\.com/${this.escapeRe(prefix)}(?:-(?:\\d+(?:st|nd|rd|th)-)?last)?-episode-(\\d+)/?`,
           'gi',
         );
         let lm: RegExpExecArray | null;
         while ((lm = linkRx.exec(main)) !== null) {
           const n = parseInt(lm[1], 10);
           if (!found.has(n)) {
-            found.set(n, { url: `https://dramaxima.com/${prefix}-episode-${n}/`, lastmod: null });
+            const u = lm[0].endsWith('/') ? lm[0] : `${lm[0]}/`;
+            found.set(n, { url: u, lastmod: null });
           }
         }
         if (page === 1 && found.size > 0) break;

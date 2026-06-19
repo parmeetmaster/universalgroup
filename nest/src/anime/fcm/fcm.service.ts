@@ -66,6 +66,18 @@ export class FcmService implements OnModuleInit {
     }
     const messaging = admin.messaging(this.app);
     await Promise.all(topics.map((t) => messaging.subscribeToTopic([token], t)));
+
+    // A token must be on EXACTLY ONE of {global, its country}. The fanout sends
+    // every episode to TOPIC_ALL AND each country topic, so a token left on both
+    // (e.g. it registered without a country first, then with one) would receive
+    // the same episode twice. When a country is known, drop the global subscription.
+    if (cc) {
+      await messaging
+        .unsubscribeFromTopic([token], TOPIC_ALL)
+        .catch((e) =>
+          this.logger.warn(`unsubscribe ${TOPIC_ALL} failed: ${(e as Error).message}`),
+        );
+    }
     return topics;
   }
 
