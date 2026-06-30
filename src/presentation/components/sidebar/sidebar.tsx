@@ -83,8 +83,14 @@ function SidebarContent({
             label={item.label}
             isActive={activePage === item.id}
             isCollapsed={isCollapsed}
+            subItems={item.children}
+            activePage={activePage}
             onClick={() => {
               setActivePage(item.id);
+              onNavClick?.();
+            }}
+            onChildClick={(id) => {
+              setActivePage(id);
               onNavClick?.();
             }}
           />

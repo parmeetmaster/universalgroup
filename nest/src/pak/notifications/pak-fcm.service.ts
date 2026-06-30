@@ -39,9 +39,15 @@ export class PakFcmService implements OnModuleInit {
     dramaSlug: string;
     episodeNumber: number;
     posterUrl?: string;
-    silent?: boolean;
+    notificationPriority?: string;
   }) {
-    const { dramaTitle, dramaSlug, episodeNumber, posterUrl, silent } = opts;
+    const {
+      dramaTitle,
+      dramaSlug,
+      episodeNumber,
+      posterUrl,
+      notificationPriority = 'silent_medium',
+    } = opts;
     const dramaTopic = topicForDrama(dramaSlug);
     const body = `Episode ${episodeNumber} is now streaming`;
 
@@ -51,27 +57,26 @@ export class PakFcmService implements OnModuleInit {
     // when several of its topics match, so the same episode can never arrive twice.
     const condition = `'${TOPIC_NEW_EPISODE}' in topics || '${dramaTopic}' in topics`;
 
+    // Data-only message — no `notification` block.
+    // The app constructs the local notification using the custom handler.
+    const data: Record<string, string> = {
+      notification_priority: notificationPriority,
+      source: 'topic',
+      action: 'open_screen',
+      target: `/drama/${dramaSlug}`,
+      title: dramaTitle,
+      body,
+    };
+
+    if (posterUrl) {
+      data.image_url = posterUrl;
+    }
+
     const message: admin.messaging.Message = {
       condition,
-      notification: {
-        title: dramaTitle,
-        body,
-        ...(posterUrl ? { imageUrl: posterUrl } : {}),
-      },
-      data: {
-        dramaSlug,
-        dramaTitle,
-        episodeNumber: String(episodeNumber),
-        type: 'new_episode',
-      },
+      data,
       android: {
-        priority: silent ? 'normal' : 'high',
-        notification: {
-          channelId: silent ? 'pak_new_silent' : 'pak_new_episode',
-          priority: silent ? 'low' : 'high',
-          defaultSound: !silent,
-          defaultVibrateTimings: !silent,
-        },
+        priority: 'high',
       },
     };
 

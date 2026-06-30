@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/ads/ad_service.dart';
 import '../../core/config/app_config_store.dart';
 import '../../core/config/env.dart';
+import '../../core/notifications/notification_service.dart';
 import '../shared/models/app_config_model.dart';
 
 enum SplashGate { loading, error, maintenance, forceUpdate, ready }
@@ -30,9 +31,11 @@ class SplashState extends Equatable {
 
 @injectable
 class SplashCubit extends Cubit<SplashState> {
-  SplashCubit(this._adService) : super(const SplashState());
+  SplashCubit(this._adService, this._notificationService)
+      : super(const SplashState());
 
   final AdService _adService;
+  final NotificationService _notificationService;
 
   Future<void> bootstrap() async {
     emit(const SplashState(gate: SplashGate.loading));
@@ -46,6 +49,13 @@ class SplashCubit extends Cubit<SplashState> {
         jsonDecode(res.body) as Map<String, dynamic>,
       );
       AppConfigStore.set(cfg);
+
+      // Update DND window from server config
+      _notificationService.updateDndWindow(
+        startTime: cfg.notificationStartTime,
+        endTime: cfg.notificationEndTime,
+      );
+
       final info = await PackageInfo.fromPlatform();
       await minSplash;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import {
   SimpleGrid,
   Box,
@@ -22,45 +22,38 @@ import {
   MdOpenInNew,
 } from "react-icons/md";
 import { useApp } from "@/presentation/providers/app-context";
-import { useDb } from "@/presentation/hooks/use-db";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { fetchAviationDashboard, selectAviationLoading, selectAviationStats, selectAviationShorts } from "@/store/slices/aviation/dashboard-slice";
+import { fetchNotifications, setNotificationsOffset, selectNotifications, selectNotificationsTotal, selectNotificationsLoading, selectNotificationsOffset } from "@/store/slices/aviation/notifications-slice";
 import { StatCard } from "./stat-card";
 import { AviationConfigForm } from "./aviation-config-form";
 
-interface AviationData {
-  stats: { totalShorts: number; totalNotifications: number };
-  youtubeShorts: Array<{ id: string; title: string; youtubeUrl: string; thumbnailUrl: string; createdAt: string }>;
-}
-
-interface Notification {
-  id: number;
-  title?: string;
-  body?: string;
-  article_url?: string;
-  topic?: string;
-  created_at?: string;
-}
-
 function DashboardPanel() {
-  const { data, loading } = useDb<AviationData>("aviation");
+  const dispatch = useAppDispatch();
+  const loading = useAppSelector(selectAviationLoading);
+  const stats = useAppSelector(selectAviationStats);
+  const shorts = useAppSelector(selectAviationShorts);
+
+  useEffect(() => {
+    dispatch(fetchAviationDashboard());
+  }, [dispatch]);
 
   if (loading) return <Flex justify="center" py={10}><Spinner color="brand.500" /></Flex>;
-
-  const s = data?.stats;
 
   return (
     <Flex direction="column" gap={5}>
       <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
-        <StatCard title="YouTube Shorts" value={String(s?.totalShorts || 0)} icon={MdOndemandVideo} gradient="linear(135deg, #ef4444, #dc2626)" change="Auto-fetched daily" changeType="positive" />
-        <StatCard title="Notifications Sent" value={String(s?.totalNotifications || 0)} icon={MdNotifications} gradient="linear(135deg, #a855f7, #7c3aed)" change="Total push notifications" changeType="neutral" />
+        <StatCard title="YouTube Shorts" value={String(stats.totalShorts || 0)} icon={MdOndemandVideo} gradient="linear(135deg, #ef4444, #dc2626)" change="Auto-fetched daily" changeType="positive" />
+        <StatCard title="Notifications Sent" value={String(stats.totalNotifications || 0)} icon={MdNotifications} gradient="linear(135deg, #a855f7, #7c3aed)" change="Total push notifications" changeType="neutral" />
       </SimpleGrid>
 
       <Box bg="white" border="1px" borderColor="gray.100" borderRadius="2xl" p={5} boxShadow="0 1px 3px rgba(0,0,0,0.04)">
         <Flex align="center" gap={2} mb={4}>
           <Text fontSize="md" fontWeight="700" color="gray.800">YouTube Shorts</Text>
-          <Badge bg="red.50" color="red.600" borderRadius="lg" px={2}>{data?.youtubeShorts?.length || 0}</Badge>
+          <Badge bg="red.50" color="red.600" borderRadius="lg" px={2}>{shorts.length}</Badge>
         </Flex>
         <VStack spacing={2} align="stretch" maxH="500px" overflowY="auto">
-          {data?.youtubeShorts?.map((s) => (
+          {shorts.map((s) => (
             <Flex key={s.id} align="center" gap={3} p={3} borderRadius="xl" bg="gray.50" _hover={{ bg: "red.50" }} transition="all 0.15s" cursor="pointer" onClick={() => window.open(s.youtubeUrl, "_blank")}>
               <Flex align="center" justify="center" w={8} h={8} borderRadius="lg" bg="red.50" flexShrink={0}>
                 <Icon as={MdPlayCircle} boxSize={5} color="red.500" />
@@ -72,7 +65,7 @@ function DashboardPanel() {
               <Icon as={MdOpenInNew} boxSize={4} color="gray.300" />
             </Flex>
           ))}
-          {(!data?.youtubeShorts || data.youtubeShorts.length === 0) && (
+          {shorts.length === 0 && (
             <Text fontSize="sm" color="gray.400" textAlign="center" py={4}>No YouTube shorts yet</Text>
           )}
         </VStack>
@@ -82,24 +75,17 @@ function DashboardPanel() {
 }
 
 function NotificationsPanel() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [offset, setOffset] = useState(0);
+  const dispatch = useAppDispatch();
+  const notifications = useAppSelector(selectNotifications);
+  const total = useAppSelector(selectNotificationsTotal);
+  const loading = useAppSelector(selectNotificationsLoading);
+  const offset = useAppSelector(selectNotificationsOffset);
   const limit = 30;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/db/aviation/notifications?limit=${limit}&offset=${offset}`);
-      const data = await res.json();
-      setNotifications(data.notifications || []);
-      setTotal(data.total || 0);
-    } catch { /* empty */ }
-    setLoading(false);
-  }, [offset]);
+  const load = useCallback(() => {
+    dispatch(fetchNotifications({ offset, limit }));
+  }, [dispatch, offset]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
 
   if (loading) return <Flex justify="center" py={10}><Spinner color="brand.500" /></Flex>;
@@ -137,9 +123,9 @@ function NotificationsPanel() {
 
         {total > limit && (
           <HStack justify="center" mt={4} spacing={2}>
-            <Button size="xs" variant="outline" borderRadius="lg" onClick={() => setOffset(Math.max(0, offset - limit))} isDisabled={offset === 0}>Prev</Button>
+            <Button size="xs" variant="outline" borderRadius="lg" onClick={() => dispatch(setNotificationsOffset(Math.max(0, offset - limit)))} isDisabled={offset === 0}>Prev</Button>
             <Text fontSize="xs" color="gray.500">{offset + 1}-{Math.min(offset + limit, total)} of {total}</Text>
-            <Button size="xs" variant="outline" borderRadius="lg" onClick={() => setOffset(offset + limit)} isDisabled={offset + limit >= total}>Next</Button>
+            <Button size="xs" variant="outline" borderRadius="lg" onClick={() => dispatch(setNotificationsOffset(offset + limit))} isDisabled={offset + limit >= total}>Next</Button>
           </HStack>
         )}
       </Box>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import {
   Box,
   Flex,
@@ -28,12 +28,24 @@ import {
   MdRefresh,
   MdPhoneAndroid,
 } from "react-icons/md";
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  fetchDevices,
+  pingAllDevices,
+  setDeviceStatusFilter,
+  setDevicesPage,
+  selectDevicesData,
+  selectDevicesStats,
+  selectDevicesList,
+  selectDevicesLoading,
+  selectDevicesTotalPages,
+  selectDevicesPinging,
+  selectDevicesStatusFilter,
+  selectDevicesPage,
+  selectDevicesPagination,
+  selectDevicesDailyInstalls,
+} from "@/store/slices/anime/devices-slice";
 import { StatCard } from "./stat-card";
-
-interface DailyInstall {
-  date: string;
-  count: string;
-}
 
 interface Device {
   id: number;
@@ -48,11 +60,9 @@ interface Device {
   uninstalled_at: string | null;
 }
 
-interface DevicesData {
-  stats: { total: number; active: number; uninstalled: number; uninstallRate: number };
-  dailyInstalls: DailyInstall[];
-  devices: Device[];
-  pagination: { total: number; page: number; limit: number };
+interface DailyInstall {
+  date: string;
+  count: string;
 }
 
 function flagEmoji(code: string): string {
@@ -62,7 +72,7 @@ function flagEmoji(code: string): string {
 }
 
 function fmt(date: string | null): string {
-  if (!date) return "—";
+  if (!date) return "\u2014";
   return new Date(date).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -108,65 +118,46 @@ function DailyChart({ data }: { data: DailyInstall[] }) {
 }
 
 export function DevicesPanel() {
-  const [data, setData] = useState<DevicesData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [pinging, setPinging] = useState(false);
+  const dispatch = useAppDispatch();
+  const data = useAppSelector(selectDevicesData);
+  const s = useAppSelector(selectDevicesStats);
+  const devices = useAppSelector(selectDevicesList);
+  const loading = useAppSelector(selectDevicesLoading);
+  const totalPages = useAppSelector(selectDevicesTotalPages);
+  const pinging = useAppSelector(selectDevicesPinging);
+  const statusFilter = useAppSelector(selectDevicesStatusFilter);
+  const page = useAppSelector(selectDevicesPage);
+  const pagination = useAppSelector(selectDevicesPagination);
+  const dailyInstalls = useAppSelector(selectDevicesDailyInstalls);
   const toast = useToast();
 
-  const load = useCallback(
-    async (p = page, sf = statusFilter) => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({ page: String(p), limit: "20" });
-        if (sf !== "all") params.set("status", sf);
-        const res = await fetch(`/api/db/anime/devices?${params}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setData(await res.json());
-      } catch (e) {
-        toast({ title: "Failed to load devices", description: String(e), status: "error", duration: 3000, position: "top-right" });
-      }
-      setLoading(false);
-    },
-    [page, statusFilter, toast]
-  );
+  useEffect(() => {
+    dispatch(fetchDevices({ page, statusFilter }));
+  }, [dispatch, page, statusFilter]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load(); }, [load]);
+  const handleRefresh = () => {
+    dispatch(fetchDevices({ page, statusFilter }));
+  };
 
   const pingAll = async () => {
-    setPinging(true);
     try {
-      const res = await fetch("/api/db/anime/devices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "ping" }),
-      });
-      const d = await res.json();
-      if (d.error) throw new Error(d.error);
+      const result = await dispatch(pingAllDevices()).unwrap();
       toast({
         title: "Ping complete",
-        description: `${d.total} pinged — ${d.uninstalled} uninstalled detected`,
+        description: `${result.total} pinged \u2014 ${result.uninstalled} uninstalled detected`,
         status: "success",
         duration: 5000,
         position: "top-right",
       });
-      load();
+      dispatch(fetchDevices({ page, statusFilter }));
     } catch (e) {
       toast({ title: "Ping failed", description: String(e), status: "error", duration: 3000, position: "top-right" });
     }
-    setPinging(false);
   };
 
   const handleFilter = (sf: string) => {
-    setStatusFilter(sf);
-    setPage(1);
-    load(1, sf);
+    dispatch(setDeviceStatusFilter(sf));
   };
-
-  const s = data?.stats;
-  const totalPages = data ? Math.ceil(data.pagination.total / 20) : 1;
 
   return (
     <Flex direction="column" gap={5}>
@@ -236,7 +227,7 @@ export function DevicesPanel() {
             variant="outline"
             leftIcon={<MdRefresh />}
             borderRadius="lg"
-            onClick={() => load()}
+            onClick={handleRefresh}
             isLoading={loading}
           >
             Refresh
@@ -247,7 +238,7 @@ export function DevicesPanel() {
             <Spinner color="brand.500" size="sm" />
           </Flex>
         ) : (
-          <DailyChart data={data?.dailyInstalls || []} />
+          <DailyChart data={dailyInstalls} />
         )}
       </Box>
 
@@ -293,7 +284,7 @@ export function DevicesPanel() {
             Device Tokens
           </Text>
           <Badge bg="brand.50" color="brand.700" borderRadius="lg" px={2}>
-            {data?.pagination.total || 0}
+            {pagination?.total || 0}
           </Badge>
         </Flex>
 
@@ -301,7 +292,7 @@ export function DevicesPanel() {
           <Flex justify="center" py={10}>
             <Spinner color="brand.500" />
           </Flex>
-        ) : !data?.devices?.length ? (
+        ) : !devices?.length ? (
           <Text fontSize="sm" color="gray.400" p={5}>
             No devices found
           </Text>
@@ -320,7 +311,7 @@ export function DevicesPanel() {
                 </Tr>
               </Thead>
               <Tbody>
-                {(data.devices as Device[]).map((d) => (
+                {(devices as Device[]).map((d) => (
                   <Tr key={d.id} _hover={{ bg: "gray.50" }} transition="background 0.1s">
                     <Td>
                       <Tooltip label={d.fcm_token} placement="top" hasArrow>
@@ -331,7 +322,7 @@ export function DevicesPanel() {
                           maxW="120px"
                           isTruncated
                         >
-                          {d.fcm_token.slice(0, 20)}…
+                          {d.fcm_token.slice(0, 20)}...
                         </Text>
                       </Tooltip>
                     </Td>
@@ -344,7 +335,7 @@ export function DevicesPanel() {
                           </Text>
                         </Flex>
                       ) : (
-                        <Text fontSize="xs" color="gray.300">—</Text>
+                        <Text fontSize="xs" color="gray.300">\u2014</Text>
                       )}
                     </Td>
                     <Td>
@@ -364,12 +355,12 @@ export function DevicesPanel() {
                     </Td>
                     <Td>
                       <Text fontSize="xs" color="gray.600" maxW="140px" isTruncated>
-                        {d.device_model || "—"}
+                        {d.device_model || "\u2014"}
                       </Text>
                     </Td>
                     <Td>
                       <Text fontSize="xs" color="gray.600">
-                        {d.app_version || "—"}
+                        {d.app_version || "\u2014"}
                       </Text>
                     </Td>
                     <Td>
@@ -400,8 +391,7 @@ export function DevicesPanel() {
               borderRadius="lg"
               isDisabled={page <= 1}
               onClick={() => {
-                setPage(page - 1);
-                load(page - 1);
+                dispatch(setDevicesPage(page - 1));
               }}
             >
               ←
@@ -414,8 +404,7 @@ export function DevicesPanel() {
               borderRadius="lg"
               isDisabled={page >= totalPages}
               onClick={() => {
-                setPage(page + 1);
-                load(page + 1);
+                dispatch(setDevicesPage(page + 1));
               }}
             >
               →

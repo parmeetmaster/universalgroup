@@ -6,6 +6,7 @@ import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PakParseService } from './parse.service';
 import { PakDramaximaDriver } from './drivers/dramaxima.driver';
 import { PakDramaSpiceDriver } from './drivers/dramaspice.driver';
+import { DriverRegistryService } from './drivers/driver-registry.service';
 import { PakParseOrchestratorService } from './scheduler/parse-orchestrator.service';
 import { ParseTier } from './scheduler/tier-classifier';
 import { CreateSourceDto } from './dto/create-source.dto';
@@ -22,6 +23,7 @@ export class PakParseController {
     private readonly svc: PakParseService,
     private readonly dramaxima: PakDramaximaDriver,
     private readonly dramaSpice: PakDramaSpiceDriver,
+    private readonly registry: DriverRegistryService,
     private readonly orchestrator: PakParseOrchestratorService,
   ) {}
 
@@ -195,6 +197,64 @@ export class PakParseController {
   @ApiOperation({ summary: 'List recent parse runs (observability)' })
   listRuns(@Query('limit', new ParseIntPipe({ optional: true })) limit?: number) {
     return this.svc.listRuns(limit ?? 50);
+  }
+
+  // --- multi-source ---
+
+  @Get('drivers')
+  @ApiOperation({ summary: 'List all registered source drivers' })
+  listDrivers() {
+    return { drivers: this.registry.slugs() };
+  }
+
+  @Post('multi-source/discover')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Run discovery across all active sources — auto-link to existing dramas via fuzzy matching',
+  })
+  multiSourceDiscover() {
+    return this.orchestrator.runMultiSourceDiscovery();
+  }
+
+  @Get('source-links')
+  @ApiOperation({ summary: 'List all drama-source links, optionally filtered by drama slug or source slug' })
+  listSourceLinks(
+    @Query('drama') dramaSlug?: string,
+    @Query('source') sourceSlug?: string,
+  ) {
+    return this.svc.listSourceLinks(dramaSlug, sourceSlug);
+  }
+
+  @Post('source-links')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Manually create a drama-source link' })
+  createSourceLink(
+    @Body() body: {
+      dramaId: string;
+      sourceId: string;
+      sourceUrl: string;
+      sourceSlug: string;
+      isPrimary?: number;
+      priority?: number;
+    },
+  ) {
+    return this.svc.createSourceLink(body);
+  }
+
+  @Patch('source-links/:id')
+  @ApiOperation({ summary: 'Update a drama-source link (priority, status, isPrimary)' })
+  updateSourceLink(
+    @Param('id') id: string,
+    @Body() body: { priority?: number; status?: string; isPrimary?: number },
+  ) {
+    return this.svc.updateSourceLink(id, body);
+  }
+
+  @Delete('source-links/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a drama-source link' })
+  deleteSourceLink(@Param('id') id: string) {
+    return this.svc.deleteSourceLink(id);
   }
 }
 

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Drama } from '../entities/drama.entity';
 import { PakImageService } from './pak-image.service';
 
@@ -213,8 +213,94 @@ export class PosterHealthService {
       }
     }
 
-    // Fallback: try fetching og:image from a Google search result page
+    // Fallback 1: YouTube thumbnail (most reliable for Pakistani dramas)
+    const ytPoster = await this.searchYouTubeForPoster(dramaTitle);
+    if (ytPoster) return ytPoster;
+
+    // Fallback 2: Google Image search
     return this.searchGoogleForPoster(dramaTitle);
+  }
+
+  /** Every 4 hours — retry poster for dramas that have NULL poster_url */
+  @Cron('0 */4 * * *', { name: 'pak-poster-missing-retry' })
+  async retryMissingPosters() {
+    const instance = process.env.NODE_APP_INSTANCE;
+    if (instance && instance !== '0') return;
+
+    const dramas = await this.dramaRepo.find({
+      where: { isPublished: 1, posterUrl: IsNull() },
+      select: ['id', 'title', 'slug'],
+    });
+
+    if (!dramas.length) return;
+
+    this.logger.log(
+      `Retrying poster for ${dramas.length} drama(s) with missing posters...`,
+    );
+
+    let fixed = 0;
+    for (const drama of dramas) {
+      const ok = await this.ensurePosterHosted(drama.id, drama.title);
+      if (ok) fixed++;
+      await this.delay(1000);
+    }
+
+    this.logger.log(
+      `Missing poster retry: ${fixed}/${dramas.length} fixed`,
+    );
+  }
+
+  private async searchYouTubeForPoster(
+    dramaTitle: string,
+  ): Promise<string | null> {
+    try {
+      const query = encodeURIComponent(
+        `${dramaTitle} Pakistani drama episode 1`,
+      );
+      const url = `https://www.youtube.com/results?search_query=${query}`;
+      const html = await this.fetchHtml(url);
+      if (!html) return null;
+
+      // Extract video IDs from YouTube search results
+      const videoIds = [
+        ...new Set(
+          (html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/g) ?? []).map(
+            (m) => m.match(/"videoId":"([a-zA-Z0-9_-]{11})"/)?.[1],
+          ),
+        ),
+      ].filter(Boolean) as string[];
+
+      // Verify the result is about the right drama by checking title context
+      const titleLower = dramaTitle.toLowerCase();
+      const titleCheck = html
+        .match(/"title":\{"runs":\[\{"text":"([^"]+)"\}/g)
+        ?.map((m) => m.match(/"text":"([^"]+)"/)?.[1]?.toLowerCase() ?? '');
+
+      for (let i = 0; i < Math.min(videoIds.length, 5); i++) {
+        // Only use this video if its title mentions the drama name
+        if (titleCheck?.[i] && !titleCheck[i].includes(titleLower)) continue;
+
+        const thumbUrl = `https://i.ytimg.com/vi/${videoIds[i]}/maxresdefault.jpg`;
+        if (await this.isUrlAccessible(thumbUrl)) {
+          this.logger.log(
+            `Found poster for "${dramaTitle}" via YouTube: ${thumbUrl}`,
+          );
+          return thumbUrl;
+        }
+
+        // Fallback to hqdefault if maxres isn't available
+        const hqUrl = `https://i.ytimg.com/vi/${videoIds[i]}/hqdefault.jpg`;
+        if (await this.isUrlAccessible(hqUrl)) {
+          this.logger.log(
+            `Found poster for "${dramaTitle}" via YouTube (HQ): ${hqUrl}`,
+          );
+          return hqUrl;
+        }
+      }
+    } catch {
+      // YouTube search failed
+    }
+    return null;
   }
 
   private async searchGoogleForPoster(

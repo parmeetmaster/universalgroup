@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import {
   Box,
   Text,
@@ -20,90 +20,65 @@ import {
   IconButton,
 } from "@chakra-ui/react";
 import { MdRefresh, MdContentCopy, MdDelete } from "react-icons/md";
-
-interface TopSite {
-  domain: string;
-  total_visits: number;
-  total_devices: number;
-  last_seen: string;
-}
-
-interface DailyStat {
-  date: string;
-  domains: number;
-  visits: number;
-}
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  fetchAnalytics,
+  cleanupAnalytics,
+  setAnalyticsDays,
+  setAnalyticsSearch,
+  selectAnalyticsDaily,
+  selectAnalyticsLoading,
+  selectAnalyticsDays,
+  selectAnalyticsSearch,
+  selectFilteredSites,
+  selectTotalVisits,
+  selectAnalyticsSites,
+} from "@/store/slices/anime/analytics-slice";
 
 export function SiteAnalyticsPanel() {
-  const [sites, setSites] = useState<TopSite[]>([]);
-  const [daily, setDaily] = useState<DailyStat[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [days, setDays] = useState("30");
-  const [search, setSearch] = useState("");
+  const dispatch = useAppDispatch();
+  const daily = useAppSelector(selectAnalyticsDaily);
+  const loading = useAppSelector(selectAnalyticsLoading);
+  const days = useAppSelector(selectAnalyticsDays);
+  const search = useAppSelector(selectAnalyticsSearch);
+  const filteredSites = useAppSelector(selectFilteredSites);
+  const totalVisits = useAppSelector(selectTotalVisits);
+  const allSites = useAppSelector(selectAnalyticsSites);
   const toast = useToast();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const token = JSON.parse(localStorage.getItem("universal_dashboard_auth") || "{}").token;
-      const headers: Record<string, string> = { "X-Admin-Token": token || "" };
-
-      const [sitesRes, dailyRes] = await Promise.all([
-        fetch(`/api/anime-downloader/admin/analytics/top-sites?days=${days}&limit=100`, { headers }),
-        fetch(`/api/anime-downloader/admin/analytics/daily?days=${days}`, { headers }),
-      ]);
-
-      if (sitesRes.ok) {
-        const data = await sitesRes.json();
-        setSites(data.items || []);
-      }
-      if (dailyRes.ok) {
-        const data = await dailyRes.json();
-        setDaily(data || []);
-      }
-    } catch (e) {
-      toast({ title: "Failed to fetch analytics", status: "error", duration: 3000 });
-    }
-    setLoading(false);
-  }, [days, toast]);
-
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    dispatch(fetchAnalytics(days));
+  }, [dispatch, days]);
 
-  const cleanup = async () => {
-    const token = JSON.parse(localStorage.getItem("universal_dashboard_auth") || "{}").token;
-    const res = await fetch(`/api/anime-downloader/admin/analytics/cleanup?days=90`, {
-      method: "DELETE",
-      headers: { "X-Admin-Token": token || "" },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      toast({ title: `Cleaned up ${data.deleted} old records`, status: "success", duration: 3000 });
-      fetchData();
+  const handleRefresh = () => {
+    dispatch(fetchAnalytics(days));
+  };
+
+  const handleCleanup = async () => {
+    try {
+      const deleted = await dispatch(cleanupAnalytics()).unwrap();
+      toast({ title: `Cleaned up ${deleted} old records`, status: "success", duration: 3000 });
+      dispatch(fetchAnalytics(days));
+    } catch {
+      toast({ title: "Cleanup failed", status: "error", duration: 3000 });
     }
   };
 
-  const filteredSites = search
-    ? sites.filter((s) => s.domain.includes(search.toLowerCase()))
-    : sites;
-
-  const totalVisits = sites.reduce((sum, s) => sum + Number(s.total_visits), 0);
-  const uniqueDomains = sites.length;
+  const uniqueDomains = allSites.length;
 
   return (
     <Box>
       <Flex justify="space-between" align="center" mb={4}>
         <Text fontSize="lg" fontWeight="bold">Site Visit Analytics</Text>
         <Flex gap={2} align="center">
-          <Select size="sm" w="120px" value={days} onChange={(e) => setDays(e.target.value)}>
+          <Select size="sm" w="120px" value={days} onChange={(e) => dispatch(setAnalyticsDays(e.target.value))}>
             <option value="7">7 days</option>
             <option value="14">14 days</option>
             <option value="30">30 days</option>
             <option value="90">90 days</option>
           </Select>
-          <IconButton aria-label="Refresh" icon={<MdRefresh />} size="sm" onClick={fetchData} />
-          <IconButton aria-label="Cleanup" icon={<MdDelete />} size="sm" colorScheme="red" variant="outline" onClick={cleanup} />
+          <IconButton aria-label="Refresh" icon={<MdRefresh />} size="sm" onClick={handleRefresh} />
+          <IconButton aria-label="Cleanup" icon={<MdDelete />} size="sm" colorScheme="red" variant="outline" onClick={handleCleanup} />
         </Flex>
       </Flex>
 
@@ -127,7 +102,7 @@ export function SiteAnalyticsPanel() {
         size="sm"
         mb={3}
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => dispatch(setAnalyticsSearch(e.target.value))}
       />
 
       {loading ? (

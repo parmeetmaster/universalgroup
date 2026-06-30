@@ -27,11 +27,13 @@ class AdService {
   // ── Interstitial pool ──
   final List<InterstitialAd> _interstitialPool = [];
   bool _isShowingInterstitial = false;
+  DateTime? _lastInterstitialDismissTime;
 
   // ── App Open Ad ──
   AppOpenAd? _appOpenAd;
   bool _isShowingAppOpen = false;
   DateTime? _appOpenLoadTime;
+  DateTime? _lastAppOpenShowTime;
 
   /// Initialize SDK + preload all ad types.
   Future<void> init() async {
@@ -79,6 +81,7 @@ class AdService {
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
         _isShowingInterstitial = false;
+        _lastInterstitialDismissTime = DateTime.now();
         _loadInterstitial();
         onDone?.call();
       },
@@ -86,6 +89,7 @@ class AdService {
         debugPrint('AdService: interstitial show failed: ${error.message}');
         ad.dispose();
         _isShowingInterstitial = false;
+        _lastInterstitialDismissTime = DateTime.now();
         _loadInterstitial();
         onDone?.call();
       },
@@ -125,6 +129,19 @@ class AdService {
   void showAppOpenAd() {
     if (!adsEnabled || _isShowingAppOpen || _isShowingInterstitial) return;
 
+    // Skip if an interstitial was dismissed in the last 5 seconds —
+    // fullscreen ads trigger a lifecycle "resumed" event on dismiss.
+    if (_lastInterstitialDismissTime != null &&
+        DateTime.now().difference(_lastInterstitialDismissTime!).inSeconds < 5) {
+      return;
+    }
+
+    // Cooldown: don't show more than once per 30 seconds
+    if (_lastAppOpenShowTime != null &&
+        DateTime.now().difference(_lastAppOpenShowTime!).inSeconds < 30) {
+      return;
+    }
+
     if (_appOpenAd == null || _isAppOpenExpired()) {
       _appOpenAd?.dispose();
       _appOpenAd = null;
@@ -133,6 +150,7 @@ class AdService {
     }
 
     _isShowingAppOpen = true;
+    _lastAppOpenShowTime = DateTime.now();
     _appOpenAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
@@ -184,6 +202,11 @@ class AdService {
   static const Widget playPageBanner = _BannerAdWidget(adUnitId: _playPageButtonId);
   static const Widget browseBanner = _BannerAdWidget(adUnitId: _browseBannerId);
   static const Widget streamOptionBanner = _BannerAdWidget(adUnitId: _streamOptionBannerId);
+
+  /// Fresh banner instance for screens that push/pop frequently (e.g. sources).
+  // ignore: prefer_const_constructors
+  static Widget createStreamOptionBanner() =>
+      _BannerAdWidget(adUnitId: _streamOptionBannerId);
   static const Widget homeNativeAd = _NativeAdWidget(adUnitId: _homeNativeId);
   static const Widget browseNativeAd = _NativeAdWidget(adUnitId: _browserTabAdId);
   static const Widget episodeListNativeAd = _NativeAdWidget(adUnitId: _episodeListNativeId);
@@ -199,27 +222,38 @@ class _BannerAdWidget extends StatefulWidget {
 
 class _BannerAdWidgetState extends State<_BannerAdWidget> {
   BannerAd? _bannerAd;
-  final _isLoaded = ValueNotifier<bool>(false);
+  bool _isLoaded = false;
 
   @override
-  void initState() {
-    super.initState();
-    if (adsEnabled) _loadAd();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_bannerAd == null && adsEnabled) _loadAd();
   }
 
-  void _loadAd() {
+  Future<void> _loadAd() async {
+    final width = MediaQuery.of(context).size.width.truncate();
+    final size = await AdSize.getAnchoredAdaptiveBannerAdSize(
+          Orientation.portrait,
+          width,
+        ) ??
+        AdSize.banner;
+    if (!mounted) return;
+
     _bannerAd = BannerAd(
       adUnitId: widget.adUnitId,
-      size: AdSize.banner,
+      size: size,
       request: const AdRequest(),
       listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          _isLoaded.value = true;
+        onAdLoaded: (_) {
+          if (mounted) setState(() => _isLoaded = true);
         },
         onAdFailedToLoad: (ad, error) {
           debugPrint('Banner load failed: ${error.message}');
           ad.dispose();
           _bannerAd = null;
+          Future<void>.delayed(const Duration(seconds: 30), () {
+            if (mounted) _loadAd();
+          });
         },
       ),
     )..load();
@@ -228,22 +262,16 @@ class _BannerAdWidgetState extends State<_BannerAdWidget> {
   @override
   void dispose() {
     _bannerAd?.dispose();
-    _isLoaded.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: _isLoaded,
-      builder: (ctx, loaded, _) {
-        if (!loaded || _bannerAd == null) return const SizedBox.shrink();
-        return SizedBox(
-          width: _bannerAd!.size.width.toDouble(),
-          height: _bannerAd!.size.height.toDouble(),
-          child: AdWidget(ad: _bannerAd!),
-        );
-      },
+    if (!_isLoaded || _bannerAd == null) return const SizedBox.shrink();
+    return SizedBox(
+      width: _bannerAd!.size.width.toDouble(),
+      height: _bannerAd!.size.height.toDouble(),
+      child: AdWidget(ad: _bannerAd!),
     );
   }
 }

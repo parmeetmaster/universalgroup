@@ -15,6 +15,7 @@ import { Season } from './season.entity';
 import { Episode } from './episode.entity';
 import { Genre } from './genre.entity';
 import { CastMember } from './cast-member.entity';
+import { DramaSourceLink } from './drama-source-link.entity';
 
 @Entity('dramas')
 @Index(['slug'], { unique: true })
@@ -144,6 +145,9 @@ export class Drama {
 
   @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt!: Date | null;
+
+  @OneToMany(() => DramaSourceLink, (l) => l.drama)
+  sourceLinks!: DramaSourceLink[];
 
   @OneToMany(() => Season, (s) => s.drama, { cascade: true })
   seasons!: Season[];

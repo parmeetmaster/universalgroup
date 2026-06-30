@@ -1,11 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Drama } from '../../entities/drama.entity';
 import { Season } from '../../entities/season.entity';
 import { Episode } from '../../entities/episode.entity';
+import { DramaSourceLink } from '../../entities/drama-source-link.entity';
 import { DramaStatusEnum } from '../../entities/enums';
 import { PosterHealthService } from '../../services/poster-health.service';
+import {
+  ISourceDriver,
+  DiscoveredDrama,
+  EpisodeLink,
+  SourceFingerprint,
+  DriverImportResult,
+} from './source-driver.interface';
+import { DriverRegistryService } from './driver-registry.service';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -28,7 +37,8 @@ export interface DramaSpiceScanResult {
 }
 
 @Injectable()
-export class PakDramaSpiceDriver {
+export class PakDramaSpiceDriver implements ISourceDriver, OnModuleInit {
+  readonly driverSlug = 'dramaspice';
   private readonly logger = new Logger(PakDramaSpiceDriver.name);
 
   constructor(
@@ -39,7 +49,130 @@ export class PakDramaSpiceDriver {
     @InjectRepository(Episode, 'pak')
     private readonly episodeRepo: Repository<Episode>,
     private readonly posterHealth: PosterHealthService,
+    private readonly registry: DriverRegistryService,
   ) {}
+
+  onModuleInit(): void {
+    this.registry.register(this);
+  }
+
+  // ── ISourceDriver interface ────────────────────────────
+
+  async discoverDramas(): Promise<DiscoveredDrama[]> {
+    const postSitemaps = await this.fetchSitemapIndex();
+    if (postSitemaps.length === 0) return [];
+    const lastUrl = postSitemaps[postSitemaps.length - 1];
+    const rawEntries = await this.fetchSitemap(lastUrl);
+    const episodes = this.parseEpisodeEntries(rawEntries);
+    const slugs = new Set<string>();
+    const results: DiscoveredDrama[] = [];
+    for (const ep of episodes) {
+      if (slugs.has(ep.dramaSlug)) continue;
+      slugs.add(ep.dramaSlug);
+      results.push({
+        sourceSlug: ep.dramaSlug,
+        sourceUrl: `https://dramaspice.net/${ep.dramaSlug}-episode-1/`,
+        title: this.slugToTitle(ep.dramaSlug),
+      });
+    }
+    return results;
+  }
+
+  async getEpisodeLinks(sourceSlug: string, _sourceUrl: string): Promise<EpisodeLink[]> {
+    const postSitemaps = await this.fetchSitemapIndex();
+    const links: EpisodeLink[] = [];
+    for (const smUrl of postSitemaps) {
+      const rawEntries = await this.fetchSitemap(smUrl);
+      const episodes = this.parseEpisodeEntries(rawEntries);
+      for (const ep of episodes) {
+        if (ep.dramaSlug !== sourceSlug) continue;
+        links.push({
+          number: ep.episodeNumber,
+          url: ep.url.replace('dramaspice.net', 'dramaxima.com'),
+          lastmod: ep.lastmod ? new Date(ep.lastmod) : null,
+        });
+      }
+    }
+    return links.sort((a, b) => a.number - b.number);
+  }
+
+  async getFingerprint(sourceSlug: string, _sourceUrl: string): Promise<SourceFingerprint | null> {
+    const postSitemaps = await this.fetchSitemapIndex();
+    if (postSitemaps.length === 0) return null;
+    const lastUrl = postSitemaps[postSitemaps.length - 1];
+    const rawEntries = await this.fetchSitemap(lastUrl);
+    const episodes = this.parseEpisodeEntries(rawEntries);
+    let max: Date | null = null;
+    let count = 0;
+    for (const ep of episodes) {
+      if (ep.dramaSlug !== sourceSlug) continue;
+      count++;
+      const d = new Date(ep.lastmod);
+      if (!isNaN(d.getTime()) && (!max || d > max)) max = d;
+    }
+    return { latestModified: max, episodeCount: count };
+  }
+
+  async importDrama(drama: Drama, sourceLink: DramaSourceLink): Promise<DriverImportResult> {
+    const epLinks = await this.getEpisodeLinks(sourceLink.sourceSlug, sourceLink.sourceUrl);
+    const result: DriverImportResult = {
+      dramaSlug: drama.slug,
+      episodesFound: epLinks.length,
+      imported: 0,
+      skipped: 0,
+      failed: 0,
+      failures: [],
+    };
+    if (epLinks.length === 0) return result;
+
+    let season = await this.seasonRepo.findOne({
+      where: { dramaId: drama.id, number: 1 },
+    });
+    if (!season) {
+      season = await this.seasonRepo.save(
+        this.seasonRepo.create({ dramaId: drama.id, number: 1, title: 'Season 1' }),
+      );
+    }
+
+    const existing = await this.episodeRepo.find({ where: { dramaId: drama.id } });
+    const existingByNum = new Map(existing.map((e) => [e.number, e]));
+
+    for (const link of epLinks) {
+      if (existingByNum.has(link.number)) {
+        result.skipped++;
+        continue;
+      }
+      try {
+        const episode = this.episodeRepo.create({
+          dramaId: drama.id,
+          seasonId: season.id,
+          number: link.number,
+          title: `Episode ${link.number}`,
+          sourceUrl: link.url,
+          airDate: link.lastmod ?? new Date(),
+          isPublished: 1,
+          isPlaceholder: 0,
+          notificationSent: 0,
+        });
+        await this.episodeRepo.save(episode);
+        result.imported++;
+      } catch (err) {
+        const msg = (err as Error).message;
+        if (!msg.includes('Duplicate') && !msg.includes('UNIQUE')) {
+          result.failed++;
+          result.failures.push({ episode: link.number, reason: msg });
+        }
+      }
+    }
+
+    if (result.imported > 0) {
+      const total = await this.episodeRepo.count({ where: { dramaId: drama.id } });
+      await this.dramaRepo.update(drama.id, { totalEpisodes: total });
+    }
+    return result;
+  }
+
+  // ── Legacy public API ──────────────────────────────────
 
   async scanAndImport(): Promise<DramaSpiceScanResult> {
     const result: DramaSpiceScanResult = {
@@ -182,12 +315,15 @@ export class PakDramaSpiceDriver {
       // The scraper processes dramas sequentially so the natural insert order
       // provides a meaningful secondary sort within the same day.
       const parsedAirDate = entry.lastmod ? new Date(entry.lastmod) : null;
+      // Store DramaXima URL so video extraction works directly
+      const resolvedUrl = entry.url.replace('dramaspice.net', 'dramaxima.com');
+
       const episode = this.episodeRepo.create({
         dramaId: drama.id,
         seasonId: season.id,
         number: entry.episodeNumber,
         title: `Episode ${entry.episodeNumber}`,
-        sourceUrl: entry.url,
+        sourceUrl: resolvedUrl,
         airDate:
           parsedAirDate && !isNaN(parsedAirDate.getTime())
             ? parsedAirDate

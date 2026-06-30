@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   SimpleGrid,
   Box,
@@ -19,26 +20,35 @@ import {
   MdBookmark,
 } from "react-icons/md";
 import { useApp } from "@/presentation/providers/app-context";
-import { useDb } from "@/presentation/hooks/use-db";
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  fetchMangaDashboard,
+  selectMangaData,
+  selectMangaLoading,
+  selectMangaTables,
+  selectMangaStats,
+  selectMangaTotalRows,
+  selectMangaDbStatus,
+  selectMangaError,
+} from "@/store/slices/manga/dashboard-slice";
 import { StatCard } from "./stat-card";
 import { MangaConfigForm } from "./manga-config-form";
 
-interface MangaData {
-  tables: string[];
-  stats: Record<string, number>;
-  dbStatus: string;
-  error?: string;
-}
-
 function DashboardPanel() {
-  const { data, loading, error } = useDb<MangaData>("manga");
+  const dispatch = useAppDispatch();
+  const data = useAppSelector(selectMangaData);
+  const loading = useAppSelector(selectMangaLoading);
+  const error = useAppSelector(selectMangaError);
+  const tables = useAppSelector(selectMangaTables);
+  const stats = useAppSelector(selectMangaStats);
+  const totalRows = useAppSelector(selectMangaTotalRows);
+  const dbStatus = useAppSelector(selectMangaDbStatus);
+
+  useEffect(() => { dispatch(fetchMangaDashboard()); }, [dispatch]);
 
   if (loading) return <Flex justify="center" py={10}><Spinner color="brand.500" /></Flex>;
 
-  const connected = data?.dbStatus === "connected";
-  const tables = data?.tables || [];
-  const stats = data?.stats || {};
-  const totalRows = Object.values(stats).reduce((a, b) => a + b, 0);
+  const connected = dbStatus === "connected";
 
   return (
     <Flex direction="column" gap={5}>
@@ -90,12 +100,15 @@ function DashboardPanel() {
 }
 
 function TableBrowsePanel({ icon, title, filterTable }: { icon: typeof MdMenuBook; title: string; filterTable?: string }) {
-  const { data, loading } = useDb<MangaData>("manga");
+  const dispatch = useAppDispatch();
+  const loading = useAppSelector(selectMangaLoading);
+  const tables = useAppSelector(selectMangaTables);
+  const stats = useAppSelector(selectMangaStats);
+
+  useEffect(() => { dispatch(fetchMangaDashboard()); }, [dispatch]);
 
   if (loading) return <Flex justify="center" py={10}><Spinner color="brand.500" /></Flex>;
 
-  const tables = data?.tables || [];
-  const stats = data?.stats || {};
   const filtered = filterTable ? tables.filter((t) => t.toLowerCase().includes(filterTable)) : tables;
 
   return (

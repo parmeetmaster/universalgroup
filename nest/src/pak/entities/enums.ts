@@ -42,3 +42,16 @@ export enum ParseRunStatusEnum {
   SUCCESS = 'success',
   FAILED = 'failed',
 }
+
+export enum MatchMethodEnum {
+  MANUAL = 'manual',
+  EXACT_SLUG = 'exact_slug',
+  FUZZY_TITLE = 'fuzzy_title',
+  SITEMAP_DISCOVERY = 'sitemap_discovery',
+}
+
+export enum SourceLinkStatusEnum {
+  ACTIVE = 'active',
+  BROKEN = 'broken',
+  STALE = 'stale',
+}

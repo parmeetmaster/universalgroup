@@ -116,8 +116,6 @@ export class PakNotificationCronService implements OnModuleInit {
 
     this.logger.log(`Found ${episodes.length} episode(s) to notify`);
 
-    let alertSent = false;
-
     for (const ep of episodes) {
       const drama = ep.drama;
       const title = drama.title.length > 50
@@ -135,7 +133,7 @@ export class PakNotificationCronService implements OnModuleInit {
           dramaSlug: drama.slug,
           episodeNumber: ep.number,
           posterUrl: poster,
-          silent: alertSent,
+          notificationPriority: 'silent_medium',
         });
 
         // Set flag ONLY after FCM succeeds
@@ -151,7 +149,6 @@ export class PakNotificationCronService implements OnModuleInit {
           );
         }
 
-        alertSent = true;
       } catch (e) {
         this.logger.error(
           `Failed to notify ${title} Ep${ep.number}: ${(e as Error).message}`,

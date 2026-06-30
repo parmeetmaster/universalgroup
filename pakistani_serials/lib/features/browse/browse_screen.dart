@@ -1,4 +1,4 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/widgets/app_cached_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -7,7 +7,6 @@ import '../../core/ads/ad_service.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
-import '../../core/util/image_utils.dart';
 import '../../core/widgets/error_view.dart';
 import '../../di/injection.dart';
 import '../shared/models/content_model.dart';
@@ -174,14 +173,9 @@ class _BrowseCard extends StatelessWidget {
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: CachedNetworkImage(
-                imageUrl: resolveImageUrl(content.posterUrl) ?? '',
-                fit: BoxFit.cover,
+              child: AppCachedImage(
+                imageUrl: content.posterUrl,
                 width: double.infinity,
-                placeholder: (_, __) =>
-                    Container(color: AppColors.surfaceElevated),
-                errorWidget: (_, __, ___) =>
-                    Container(color: AppColors.surfaceElevated),
               ),
             ),
           ),

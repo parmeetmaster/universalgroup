@@ -50,8 +50,7 @@ class _SourcesView extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: adsEnabled
-          ? const SafeArea(
-              top: false,
+          ? SafeArea(
               child: ColoredBox(
                 color: AppColors.bg,
                 child: AdService.streamOptionBanner,

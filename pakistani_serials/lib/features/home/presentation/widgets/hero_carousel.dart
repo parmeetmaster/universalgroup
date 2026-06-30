@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/app_cached_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -9,7 +9,6 @@ import '../../../../core/router/routes.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/gradients.dart';
 import '../../../../core/theme/spacing.dart';
-import '../../../../core/util/image_utils.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/content_model.dart';
 
@@ -109,15 +108,11 @@ class _HeroSlide extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (resolveImageUrl(content.backdropUrl ?? content.posterUrl) != null)
-            CachedNetworkImage(
-              imageUrl: resolveImageUrl(content.backdropUrl ?? content.posterUrl)!,
-              fit: BoxFit.cover,
-              alignment: const Alignment(0, -0.35),
-              errorWidget: (_, __, ___) => Container(color: AppColors.surface),
-            )
-          else
-            Container(color: AppColors.surface),
+          AppCachedImage(
+            imageUrl: content.backdropUrl ?? content.posterUrl,
+            alignment: const Alignment(0, -0.35),
+            errorWidget: Container(color: AppColors.surface),
+          ),
           Container(
             decoration: const BoxDecoration(gradient: AppGradients.heroTopShade),
           ),

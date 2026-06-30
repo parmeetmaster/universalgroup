@@ -99,6 +99,25 @@ export class PakParseSchedulerService {
   // DramaSpice homepage sync: scrape "Today's Episodes" list and set ordered
   // airDates so "Latest Releases" rail matches the homepage order exactly.
   // Runs hourly during prime window (8 PM–midnight IST) when new episodes drop.
+  // Multi-source discovery: link dramas across all active sources (hum.tv, etc.)
+  // Runs twice daily at 6 AM and 6 PM IST
+  @Cron('0 6,18 * * *', {
+    name: 'pak-multi-source-discovery',
+    timeZone: 'Asia/Kolkata',
+  })
+  async multiSourceDiscovery(): Promise<void> {
+    const instance = process.env.NODE_APP_INSTANCE;
+    if (instance && instance !== '0') return;
+    try {
+      const r = await this.orchestrator.runMultiSourceDiscovery();
+      this.logger.log(
+        `Multi-source discovery: ${r.sources.map((s) => `${s.slug}:linked=${s.linked}`).join(', ')}`,
+      );
+    } catch (err) {
+      this.logger.error(`Multi-source discovery failed: ${(err as Error).message}`);
+    }
+  }
+
   @Cron('30 20,21,22,23 * * *', {
     name: 'pak-dramaspice-homepage-sync',
     timeZone: 'Asia/Kolkata',

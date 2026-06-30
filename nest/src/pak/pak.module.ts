@@ -15,6 +15,7 @@ import { ParseRun } from './entities/parse-run.entity';
 import { ParseSource } from './entities/parse-source.entity';
 import { Season } from './entities/season.entity';
 import { DramaLike } from './entities/drama-like.entity';
+import { DramaSourceLink } from './entities/drama-source-link.entity';
 
 import { PakDramasModule } from './dramas/dramas.module';
 import { PakEpisodesModule } from './episodes/episodes.module';
@@ -61,6 +62,7 @@ import { PakV2Module } from './v2/pak-v2.module';
           Season,
           PakSentNotification,
           DramaLike,
+          DramaSourceLink,
         ],
         synchronize: false,
         charset: 'utf8mb4',

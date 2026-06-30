@@ -1,12 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/app_cached_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/routes.dart';
-import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/spacing.dart';
-import '../../../../core/util/image_utils.dart';
 import '../../../../core/widgets/empty_view.dart';
 import '../../../../di/injection.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -84,11 +82,8 @@ class _SearchViewState extends State<_SearchView> {
                             child: SizedBox(
                               width: 48,
                               height: 72,
-                              child: CachedNetworkImage(
-                                imageUrl: resolveImageUrl(c.posterUrl) ?? '',
-                                fit: BoxFit.cover,
-                                errorWidget: (_, __, ___) =>
-                                    Container(color: AppColors.surfaceElevated),
+                              child: AppCachedImage(
+                                imageUrl: c.posterUrl,
                               ),
                             ),
                           ),

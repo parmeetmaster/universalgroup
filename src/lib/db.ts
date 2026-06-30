@@ -2,7 +2,7 @@ import mysql from "mysql2/promise";
 
 const pools: Record<string, mysql.Pool> = {};
 
-type AppDb = "anime" | "pak" | "aviation" | "manga";
+type AppDb = "anime" | "pak" | "aviation" | "manga" | "chinese-drama";
 
 function getPool(app: AppDb): mysql.Pool {
   if (pools[app]) return pools[app];
@@ -35,6 +35,13 @@ function getPool(app: AppDb): mysql.Pool {
       user: process.env.MANGA_DB_USER,
       password: process.env.MANGA_DB_PASS,
       database: process.env.MANGA_DB_NAME,
+    },
+    "chinese-drama": {
+      host: process.env.CHINESE_DRAMA_DB_HOST,
+      port: Number(process.env.CHINESE_DRAMA_DB_PORT) || 3306,
+      user: process.env.CHINESE_DRAMA_DB_USER,
+      password: process.env.CHINESE_DRAMA_DB_PASS,
+      database: process.env.CHINESE_DRAMA_DB_NAME,
     },
   };
 

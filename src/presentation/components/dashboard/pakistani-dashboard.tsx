@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import {
   SimpleGrid,
   Box,
@@ -20,40 +20,52 @@ import {
   MdSearch,
 } from "react-icons/md";
 import { useApp } from "@/presentation/providers/app-context";
-import { useDb } from "@/presentation/hooks/use-db";
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  fetchPakDashboard,
+  searchPakDramas,
+  setSearchQuery,
+  selectPakData,
+  selectPakLoading,
+  selectPakStats,
+  selectPakDramas,
+  selectPakGenres,
+  selectPakRecentEpisodes,
+  selectPakSearchResults,
+  selectPakSearchLoading,
+} from "@/store/slices/pak/dashboard-slice";
 import { StatCard } from "./stat-card";
 import { PakConfigForm } from "./pak-config-form";
 
-interface PakData {
-  stats: { totalDramas: number; totalEpisodes: number; totalGenres: number };
-  dramas: Array<{ id: string; title: string; slug: string; status: string }>;
-  genres: Array<{ id: string; name: string; slug: string }>;
-  recentEpisodes: Array<{ id: string; title: string; number: number; dramaTitle: string }>;
-}
-
 function DashboardPanel() {
-  const { data, loading } = useDb<PakData>("pak");
+  const dispatch = useAppDispatch();
+  const data = useAppSelector(selectPakData);
+  const loading = useAppSelector(selectPakLoading);
+  const s = useAppSelector(selectPakStats);
+  const dramas = useAppSelector(selectPakDramas);
+  const genres = useAppSelector(selectPakGenres);
+  const recentEpisodes = useAppSelector(selectPakRecentEpisodes);
+
+  useEffect(() => { dispatch(fetchPakDashboard()); }, [dispatch]);
 
   if (loading) return <Flex justify="center" py={10}><Spinner color="brand.500" /></Flex>;
-
-  const s = data?.stats;
 
   return (
     <Flex direction="column" gap={5}>
       <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={4}>
         <StatCard title="Total Dramas" value={String(s?.totalDramas || 0)} icon={MdMovie} gradient="linear(135deg, #06b6d4, #0891b2)" change="From database" changeType="neutral" />
         <StatCard title="Total Episodes" value={String(s?.totalEpisodes || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} icon={MdOndemandVideo} gradient="linear(135deg, #a855f7, #7c3aed)" change="Across all dramas" changeType="positive" />
-        <StatCard title="Genres" value={String(s?.totalGenres || 0)} icon={MdCategory} gradient="linear(135deg, #f97316, #ea580c)" change={data?.genres?.map(g => g.name).join(", ") || ""} changeType="neutral" />
+        <StatCard title="Genres" value={String(s?.totalGenres || 0)} icon={MdCategory} gradient="linear(135deg, #f97316, #ea580c)" change={genres?.map(g => g.name).join(", ") || ""} changeType="neutral" />
       </SimpleGrid>
 
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
         <Box bg="white" border="1px" borderColor="gray.100" borderRadius="2xl" p={5} boxShadow="0 1px 3px rgba(0,0,0,0.04)">
           <Flex align="center" gap={2} mb={4}>
             <Text fontSize="md" fontWeight="700" color="gray.800">Recent Dramas</Text>
-            <Badge bg="brand.50" color="brand.700" borderRadius="lg" px={2}>{data?.dramas?.length}</Badge>
+            <Badge bg="brand.50" color="brand.700" borderRadius="lg" px={2}>{dramas?.length}</Badge>
           </Flex>
           <VStack spacing={2} align="stretch" maxH="400px" overflowY="auto">
-            {data?.dramas?.map((d) => (
+            {dramas?.map((d) => (
               <Flex key={d.id} align="center" gap={3} p={3} borderRadius="xl" bg="gray.50" _hover={{ bg: "brand.50" }} transition="all 0.15s">
                 <Flex align="center" justify="center" w={8} h={8} borderRadius="lg" bg="brand.50" flexShrink={0}>
                   <Icon as={MdMovie} boxSize={4} color="brand.600" />
@@ -71,7 +83,7 @@ function DashboardPanel() {
         <Box bg="white" border="1px" borderColor="gray.100" borderRadius="2xl" p={5} boxShadow="0 1px 3px rgba(0,0,0,0.04)">
           <Text fontSize="md" fontWeight="700" color="gray.800" mb={4}>Recent Episodes</Text>
           <VStack spacing={2} align="stretch" maxH="400px" overflowY="auto">
-            {data?.recentEpisodes?.map((e) => (
+            {recentEpisodes?.map((e) => (
               <Flex key={e.id} align="center" gap={3} p={3} borderRadius="xl" bg="gray.50" _hover={{ bg: "brand.50" }} transition="all 0.15s">
                 <Flex align="center" justify="center" w={8} h={8} borderRadius="lg" bg="purple.50" flexShrink={0}>
                   <Icon as={MdOndemandVideo} boxSize={4} color="purple.600" />
@@ -90,26 +102,21 @@ function DashboardPanel() {
 }
 
 function SearchPanel() {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Record<string, string>[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const results = useAppSelector(selectPakSearchResults);
+  const loading = useAppSelector(selectPakSearchLoading);
+  const query = useAppSelector((state: { pakDashboard: { searchQuery: string } }) => state.pakDashboard.searchQuery);
 
-  const doSearch = async () => {
+  const doSearch = () => {
     if (!query.trim()) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/db/pak/search?q=${encodeURIComponent(query)}`);
-      const data = await res.json();
-      setResults(data?.results || []);
-    } catch { setResults([]); }
-    setLoading(false);
+    dispatch(searchPakDramas(query));
   };
 
   return (
     <Box bg="white" border="1px" borderColor="gray.100" borderRadius="2xl" p={5} boxShadow="0 1px 3px rgba(0,0,0,0.04)">
       <Text fontSize="md" fontWeight="700" color="gray.800" mb={4}>Search Dramas</Text>
       <Flex gap={2} mb={4}>
-        <Input placeholder="Search by name..." value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doSearch()} size="sm" borderRadius="lg" bg="gray.50" />
+        <Input placeholder="Search by name..." value={query} onChange={(e) => dispatch(setSearchQuery(e.target.value))} onKeyDown={(e) => e.key === "Enter" && doSearch()} size="sm" borderRadius="lg" bg="gray.50" />
         <Button onClick={doSearch} isLoading={loading} size="sm" colorScheme="brand" borderRadius="lg" leftIcon={<MdSearch />}>Search</Button>
       </Flex>
       {results !== null && (results.length > 0 ? (

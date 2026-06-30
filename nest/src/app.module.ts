@@ -6,6 +6,7 @@ import { AviationModule } from './aviation/aviation.module';
 import { PakModule } from './pak/pak.module';
 import { AuthModule } from './auth/auth.module';
 import { MangaModule } from './manga/manga.module';
+import { ChineseDramaHomepageModule } from './chinese-drama-homepage/chinese-drama-homepage.module';
 import { FeedbackModule } from './common/feedback/feedback.module';
 
 @Module({
@@ -16,6 +17,7 @@ import { FeedbackModule } from './common/feedback/feedback.module';
     AviationModule,
     PakModule,
     MangaModule,
+    ChineseDramaHomepageModule,
     AuthModule,
     FeedbackModule,
   ],

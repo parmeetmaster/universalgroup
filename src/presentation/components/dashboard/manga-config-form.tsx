@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import {
   Box,
   Flex,
@@ -19,6 +19,8 @@ import {
   Badge,
 } from "@chakra-ui/react";
 import { MdSave, MdRefresh } from "react-icons/md";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { mangaConfigActions, mangaConfigThunks, mangaConfigSelectors } from "@/store/slices/manga/config-slice";
 
 interface MangaConfig {
   min_app_version: string;
@@ -33,76 +35,34 @@ interface MangaConfig {
   terms_url: string;
 }
 
-const DEFAULTS: MangaConfig = {
-  min_app_version: "1.0.0",
-  latest_app_version: "1.0.0",
-  force_update: false,
-  maintenance_mode: false,
-  maintenance_message: "",
-  announcement: "",
-  play_store_url: "",
-  support_email: "",
-  privacy_url: "",
-  terms_url: "",
-};
-
 export function MangaConfigForm() {
-  const [config, setConfig] = useState<MangaConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const dispatch = useAppDispatch();
+  const rawConfig = useAppSelector(mangaConfigSelectors.selectConfig);
+  const loading = useAppSelector(mangaConfigSelectors.selectLoading) as boolean;
+  const saving = useAppSelector(mangaConfigSelectors.selectSaving) as boolean;
+  const dirty = useAppSelector(mangaConfigSelectors.selectDirty) as boolean;
   const toast = useToast();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/db/manga/config");
-      const data = await res.json();
-      const c = data.config || {};
-      setConfig({
-        min_app_version: String(c.min_app_version ?? DEFAULTS.min_app_version),
-        latest_app_version: String(c.latest_app_version ?? DEFAULTS.latest_app_version),
-        force_update: Boolean(c.force_update ?? DEFAULTS.force_update),
-        maintenance_mode: Boolean(c.maintenance_mode ?? DEFAULTS.maintenance_mode),
-        maintenance_message: String(c.maintenance_message ?? ""),
-        announcement: String(c.announcement ?? ""),
-        play_store_url: String(c.play_store_url ?? ""),
-        support_email: String(c.support_email ?? ""),
-        privacy_url: String(c.privacy_url ?? ""),
-        terms_url: String(c.terms_url ?? ""),
-      });
-    } catch {
-      toast({ title: "Failed to load config", status: "error", duration: 3000, position: "top-right" });
-    }
-    setLoading(false);
-    setDirty(false);
-  }, [toast]);
+  const config = rawConfig as MangaConfig | null;
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { dispatch(mangaConfigThunks.fetchConfig()); }, [dispatch]);
 
   const update = (patch: Partial<MangaConfig>) => {
-    setConfig((prev) => prev ? { ...prev, ...patch } : prev);
-    setDirty(true);
+    dispatch(mangaConfigActions.updateConfig(patch));
+  };
+
+  const load = () => {
+    dispatch(mangaConfigThunks.fetchConfig());
   };
 
   const save = async () => {
     if (!config) return;
-    setSaving(true);
     try {
-      const res = await fetch("/api/db/manga/config", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      await dispatch(mangaConfigThunks.saveConfig(config as unknown as Record<string, unknown>)).unwrap();
       toast({ title: "Config saved", status: "success", duration: 2000, position: "top-right" });
-      setDirty(false);
     } catch (e) {
       toast({ title: "Failed to save", description: String(e), status: "error", duration: 3000, position: "top-right" });
     }
-    setSaving(false);
   };
 
   if (loading) return <Flex justify="center" py={10}><Spinner color="brand.500" /></Flex>;

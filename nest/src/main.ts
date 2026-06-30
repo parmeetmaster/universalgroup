@@ -51,7 +51,11 @@ export async function bootstrapNest(): Promise<NestExpressApplication> {
   const mangaDoc = { ...filterDocByPath(fullDoc, '/api/manga'), info: { title: 'Manga App API', description: 'Manga config + Asura new-chapter notifications', version: '1.0' } };
   SwaggerModule.setup('api/manga-app/api-docs', app, mangaDoc, swaggerOpts);
 
-  // 5. Global — all APIs combined
+  // 5. Chinese Drama — only /api/chinese-drama/* paths
+  const chineseDramaDoc = { ...filterDocByPath(fullDoc, '/api/chinese-drama'), info: { title: 'Chinese Drama API', description: 'Chinese drama explore/homepage API', version: '1.0' } };
+  SwaggerModule.setup('api/chinese-drama/api-docs', app, chineseDramaDoc, swaggerOpts);
+
+  // 6. Global — all APIs combined
   SwaggerModule.setup('api-docs', app, fullDoc, swaggerOpts);
 
   return app;

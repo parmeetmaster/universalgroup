@@ -1,57 +1,48 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import {
   Box, Flex, Text, Button, IconButton, HStack, Badge, Code,
   Spinner, useToast, Link,
 } from "@chakra-ui/react";
 import { MdRefresh, MdRssFeed, MdPlayCircle, MdOpenInNew } from "react-icons/md";
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  fetchScraperData,
+  triggerScraperScrape,
+  selectScraperEpisodes,
+  selectScraperTotal,
+  selectScraperLoading,
+  selectScraperScraping,
+  selectScraperResult,
+} from "@/store/slices/anime/scraper-slice";
 import { StatCard } from "./stat-card";
 
-interface Episode {
-  url: string;
-  first_seen_at: string;
-  created_at: string;
-}
-
 export function ScraperPanel() {
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [scraping, setScraping] = useState(false);
-  const [scrapeResult, setScrapeResult] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const episodes = useAppSelector(selectScraperEpisodes);
+  const total = useAppSelector(selectScraperTotal);
+  const loading = useAppSelector(selectScraperLoading);
+  const scraping = useAppSelector(selectScraperScraping);
+  const scrapeResult = useAppSelector(selectScraperResult);
   const toast = useToast();
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/db/anime/scrape");
-      const data = await res.json();
-      setEpisodes(data.recentEpisodes || []);
-      setTotal(data.totalEpisodes || 0);
-    } catch {
-      toast({ title: "Failed to load scraper data", status: "error", duration: 3000, position: "top-right" });
-    }
-    setLoading(false);
-  }, [toast]);
+  useEffect(() => {
+    dispatch(fetchScraperData());
+  }, [dispatch]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadData(); }, [loadData]);
+  const handleRefresh = () => {
+    dispatch(fetchScraperData());
+  };
 
-  const triggerScrape = async () => {
-    setScraping(true);
-    setScrapeResult(null);
+  const handleScrape = async () => {
     try {
-      const res = await fetch("/api/db/anime/scrape", { method: "POST" });
-      const data = await res.json();
-      if (!data.success) throw new Error("Scrape failed");
-      setScrapeResult(JSON.stringify(data.data, null, 2));
+      await dispatch(triggerScraperScrape()).unwrap();
       toast({ title: "Scrape completed", status: "success", duration: 2000, position: "top-right" });
-      await loadData();
+      dispatch(fetchScraperData());
     } catch (e) {
       toast({ title: "Scrape failed", description: String(e), status: "error", duration: 3000, position: "top-right" });
     }
-    setScraping(false);
   };
 
   const truncateUrl = (url: string) => {
@@ -74,7 +65,7 @@ export function ScraperPanel() {
             <Badge bg="brand.50" color="brand.700" borderRadius="lg" px={2}>{total} episodes</Badge>
           </Flex>
           <HStack spacing={2}>
-            <Button size="sm" variant="ghost" borderRadius="lg" leftIcon={<MdRefresh />} onClick={loadData} color="gray.500" _hover={{ color: "brand.600" }}>
+            <Button size="sm" variant="ghost" borderRadius="lg" leftIcon={<MdRefresh />} onClick={handleRefresh} color="gray.500" _hover={{ color: "brand.600" }}>
               Refresh
             </Button>
           </HStack>
@@ -88,7 +79,7 @@ export function ScraperPanel() {
         </Box>
         <Flex flex="1" bg="white" border="1px" borderColor="gray.100" borderRadius="2xl" p={5} boxShadow="0 1px 3px rgba(0,0,0,0.04)" align="center" justify="center" direction="column" gap={3}>
           <Text fontSize="xs" color="gray.500" fontWeight="600" textTransform="uppercase" letterSpacing="wider">Scraper Actions</Text>
-          <Button colorScheme="brand" borderRadius="lg" leftIcon={<MdPlayCircle />} onClick={triggerScrape} isLoading={scraping} loadingText="Scraping...">
+          <Button colorScheme="brand" borderRadius="lg" leftIcon={<MdPlayCircle />} onClick={handleScrape} isLoading={scraping} loadingText="Scraping...">
             Trigger Scrape
           </Button>
         </Flex>

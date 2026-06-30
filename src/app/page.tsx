@@ -7,6 +7,7 @@ import { AnimeDashboard } from "@/presentation/components/dashboard/anime-dashbo
 import { PakistaniDashboard } from "@/presentation/components/dashboard/pakistani-dashboard";
 import { AviationDashboard } from "@/presentation/components/dashboard/aviation-dashboard";
 import { MangaDashboard } from "@/presentation/components/dashboard/manga-dashboard";
+import { ChineseDramaDashboard } from "@/presentation/components/dashboard/chinese-drama-dashboard";
 import { useApp } from "@/presentation/providers/app-context";
 import { useAuth } from "@/presentation/providers/auth-context";
 import { LoginPage } from "@/presentation/components/login/login-page";
@@ -16,6 +17,7 @@ const dashboards: Record<string, React.ComponentType> = {
   "pakistani-serials": PakistaniDashboard,
   "aviation-news": AviationDashboard,
   "manga-app": MangaDashboard,
+  "chinese-drama": ChineseDramaDashboard,
 };
 
 export default function Home() {
@@ -30,7 +32,8 @@ export default function Home() {
     );
   }
 
-  if (!isAuthenticated) return <LoginPage />;
+  // TODO: Re-enable auth after development
+  // if (!isAuthenticated) return <LoginPage />;
   const DashboardContent = dashboards[currentApp.id] || AnimeDashboard;
 
   const pageLabel = currentApp.navItems.find((n) => n.id === activePage)?.label || "Dashboard";

@@ -28,20 +28,26 @@ import {
   MdSave,
   MdRefresh,
 } from "react-icons/md";
-
-interface Report {
-  id: number; device_name: string; app_version: string;
-  error_title: string; error_message: string; download_url: string;
-  additional_info: string; status: "open" | "ack" | "closed";
-  admin_notes: string; created_at: string; updated_at: string;
-  location: string | null;
-}
-
-interface ReportsResponse {
-  total: number;
-  counts: { total: number; open: number; ack: number; closed: number };
-  items: Report[];
-}
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  fetchReports,
+  patchReport,
+  deleteReport,
+  deleteAllReports,
+  setReportsFilter,
+  setReportsSearch,
+  setReportsOffset,
+  selectReportsCounts,
+  selectReportsItems,
+  selectReportsLoading,
+  selectReportsFilter,
+  selectReportsSearch,
+  selectReportsOffset,
+  selectReportsTotal,
+  selectReportsSavingId,
+  selectReportsDeletingId,
+  selectReportsMassDeleting,
+} from "@/store/slices/anime/reports-slice";
 
 type StatusFilter = "all" | "open" | "ack" | "closed";
 
@@ -65,79 +71,67 @@ function DetailBlock({ label, children, scrollable }: { label: string; children:
 }
 
 export function ErrorReportsPanel() {
-  const [data, setData] = useState<ReportsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<StatusFilter>("all");
-  const [search, setSearch] = useState("");
-  const [offset, setOffset] = useState(0);
+  const dispatch = useAppDispatch();
+  const counts = useAppSelector(selectReportsCounts);
+  const items = useAppSelector(selectReportsItems);
+  const loading = useAppSelector(selectReportsLoading);
+  const filter = useAppSelector(selectReportsFilter);
+  const search = useAppSelector(selectReportsSearch);
+  const offset = useAppSelector(selectReportsOffset);
+  const total = useAppSelector(selectReportsTotal);
+  const saving = useAppSelector(selectReportsSavingId);
+  const deleting = useAppSelector(selectReportsDeletingId);
+  const massDeleting = useAppSelector(selectReportsMassDeleting);
+
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [notes, setNotes] = useState<Record<number, string>>({});
-  const [saving, setSaving] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<number | null>(null);
-  const [massDeleting, setMassDeleting] = useState(false);
   const toast = useToast();
 
-  const fetchReports = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) });
-      if (filter !== "all") params.set("status", filter);
-      if (search.trim()) params.set("q", search.trim());
-      const res = await fetch(`/api/db/anime/reports?${params}`);
-      const json: ReportsResponse = await res.json();
-      setData(json);
+  const doFetch = useCallback(() => {
+    dispatch(fetchReports({ filter, search, offset }));
+  }, [dispatch, filter, search, offset]);
+
+  useEffect(() => {
+    doFetch();
+  }, [doFetch]);
+
+  // Sync notes from items when they load
+  useEffect(() => {
+    if (items.length > 0) {
       const noteMap: Record<number, string> = {};
-      json.items.forEach((r) => { noteMap[r.id] = r.admin_notes || ""; });
+      items.forEach((r) => { noteMap[r.id] = r.admin_notes || ""; });
       setNotes((prev) => ({ ...prev, ...noteMap }));
-    } catch {
-      toast({ title: "Failed to load reports", status: "error", duration: 3000, position: "top-right" });
     }
-    setLoading(false);
-  }, [filter, search, offset, toast]);
+  }, [items]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { fetchReports(); }, [fetchReports]);
-
-  const patchReport = async (id: number, body: Record<string, string>, msg: string) => {
-    setSaving(id);
+  const handlePatch = async (id: number, body: Record<string, string>, msg: string) => {
     try {
-      const res = await fetch(`/api/db/anime/reports/${id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-      });
-      if (!(await res.json()).success) throw new Error();
+      await dispatch(patchReport({ id, body })).unwrap();
       toast({ title: msg, status: "success", duration: 2000, position: "top-right" });
-      if (body.status) await fetchReports();
+      if (body.status) doFetch();
     } catch {
       toast({ title: "Failed to update", status: "error", duration: 3000, position: "top-right" });
     }
-    setSaving(null);
   };
 
-  const deleteReport = async (id: number) => {
-    setDeleting(id);
+  const handleDelete = async (id: number) => {
     try {
-      if (!(await (await fetch(`/api/db/anime/reports/${id}`, { method: "DELETE" })).json()).success) throw new Error();
+      await dispatch(deleteReport(id)).unwrap();
       toast({ title: "Report deleted", status: "info", duration: 2000, position: "top-right" });
-      await fetchReports();
+      doFetch();
     } catch {
       toast({ title: "Failed to delete", status: "error", duration: 3000, position: "top-right" });
     }
-    setDeleting(null);
   };
 
-  const deleteAll = async (status?: string) => {
-    setMassDeleting(true);
+  const handleDeleteAll = async (status?: string) => {
     try {
-      const url = status ? `/api/db/anime/reports?status=${status}` : "/api/db/anime/reports";
-      const res = await fetch(url, { method: "DELETE" });
-      if (!(await res.json()).success) throw new Error();
+      await dispatch(deleteAllReports(status)).unwrap();
       toast({ title: status ? `All "${status}" reports deleted` : "All reports deleted", status: "info", duration: 2000, position: "top-right" });
-      setOffset(0);
-      await fetchReports();
+      doFetch();
     } catch {
       toast({ title: "Failed to delete", status: "error", duration: 3000, position: "top-right" });
     }
-    setMassDeleting(false);
   };
 
   const toggleExpand = (id: number) => {
@@ -148,10 +142,8 @@ export function ErrorReportsPanel() {
     });
   };
 
-  const handleFilterChange = (f: StatusFilter) => { setFilter(f); setOffset(0); };
-  const handleSearch = (v: string) => { setSearch(v); setOffset(0); };
-  const counts = data?.counts || { total: 0, open: 0, ack: 0, closed: 0 };
-  const total = data?.total ?? 0;
+  const handleFilterChange = (f: StatusFilter) => { dispatch(setReportsFilter(f)); };
+  const handleSearch = (v: string) => { dispatch(setReportsSearch(v)); };
   const hasNext = offset + LIMIT < total;
   const hasPrev = offset > 0;
 
@@ -169,10 +161,10 @@ export function ErrorReportsPanel() {
             <Badge bg="green.50" color="green.700" borderRadius="lg" px={2}>{counts.open} Open</Badge>
             <Badge bg="orange.50" color="orange.700" borderRadius="lg" px={2}>{counts.ack} Ack</Badge>
             <Badge bg="gray.100" color="gray.500" borderRadius="lg" px={2}>{counts.closed} Closed</Badge>
-            <Button size="sm" variant="ghost" borderRadius="lg" leftIcon={<MdRefresh />} onClick={fetchReports} color="gray.500" _hover={{ color: "brand.600" }}>
+            <Button size="sm" variant="ghost" borderRadius="lg" leftIcon={<MdRefresh />} onClick={doFetch} color="gray.500" _hover={{ color: "brand.600" }}>
               Refresh
             </Button>
-            <Button size="sm" colorScheme="red" borderRadius="lg" leftIcon={<MdDelete />} onClick={() => deleteAll(filter !== "all" ? filter : undefined)} isLoading={massDeleting}>
+            <Button size="sm" colorScheme="red" borderRadius="lg" leftIcon={<MdDelete />} onClick={() => handleDeleteAll(filter !== "all" ? filter : undefined)} isLoading={massDeleting}>
               {filter !== "all" ? `Delete All ${filter}` : "Delete All"}
             </Button>
           </HStack>
@@ -206,9 +198,9 @@ export function ErrorReportsPanel() {
       {loading && <Flex justify="center" py={10}><Spinner color="brand.500" /></Flex>}
 
       {/* Reports List */}
-      {!loading && data && (
+      {!loading && (
         <VStack spacing={3} align="stretch">
-          {data.items.map((r) => (
+          {items.map((r) => (
             <Box key={r.id} bg="white" border="1px" borderColor="gray.100" borderRadius="2xl" p={5} boxShadow="0 1px 3px rgba(0,0,0,0.04)" transition="all 0.15s">
               {/* Report header - clickable */}
               <Flex justify="space-between" align="flex-start" cursor="pointer" onClick={() => toggleExpand(r.id)}>
@@ -254,16 +246,16 @@ export function ErrorReportsPanel() {
                     {/* Actions */}
                     <HStack spacing={2} justify="flex-end" flexWrap="wrap">
                       {r.status !== "ack" && (
-                        <Button size="xs" colorScheme="orange" variant="outline" borderRadius="lg" leftIcon={<MdCheckCircle />} onClick={() => patchReport(r.id, { status: "ack" }, "Marked as ack")} isLoading={saving === r.id}>
+                        <Button size="xs" colorScheme="orange" variant="outline" borderRadius="lg" leftIcon={<MdCheckCircle />} onClick={() => handlePatch(r.id, { status: "ack" }, "Marked as ack")} isLoading={saving === r.id}>
                           Mark Ack
                         </Button>
                       )}
                       {r.status !== "closed" && (
-                        <Button size="xs" colorScheme="gray" variant="outline" borderRadius="lg" leftIcon={<MdCheckCircle />} onClick={() => patchReport(r.id, { status: "closed" }, "Marked as closed")} isLoading={saving === r.id}>
+                        <Button size="xs" colorScheme="gray" variant="outline" borderRadius="lg" leftIcon={<MdCheckCircle />} onClick={() => handlePatch(r.id, { status: "closed" }, "Marked as closed")} isLoading={saving === r.id}>
                           Close
                         </Button>
                       )}
-                      <Button size="xs" colorScheme="brand" borderRadius="lg" leftIcon={<MdSave />} onClick={() => patchReport(r.id, { admin_notes: notes[r.id] || "" }, "Notes saved")} isLoading={saving === r.id}>
+                      <Button size="xs" colorScheme="brand" borderRadius="lg" leftIcon={<MdSave />} onClick={() => handlePatch(r.id, { admin_notes: notes[r.id] || "" }, "Notes saved")} isLoading={saving === r.id}>
                         Save Notes
                       </Button>
                       <IconButton
@@ -274,7 +266,7 @@ export function ErrorReportsPanel() {
                         color="gray.400"
                         _hover={{ color: "red.500", bg: "red.50" }}
                         borderRadius="lg"
-                        onClick={() => deleteReport(r.id)}
+                        onClick={() => handleDelete(r.id)}
                         isLoading={deleting === r.id}
                       />
                     </HStack>
@@ -285,7 +277,7 @@ export function ErrorReportsPanel() {
           ))}
 
           {/* Empty State */}
-          {data.items.length === 0 && (
+          {items.length === 0 && (
             <Box bg="white" border="1px" borderColor="gray.100" borderRadius="2xl" p={8} textAlign="center">
               <Box as={MdBugReport} boxSize={8} color="gray.300" mx="auto" mb={2} />
               <Text color="gray.400" fontSize="sm">No error reports found.</Text>
@@ -301,10 +293,10 @@ export function ErrorReportsPanel() {
             Showing {offset + 1}-{Math.min(offset + LIMIT, total)} of {total}
           </Text>
           <HStack spacing={2}>
-            <Button size="sm" variant="outline" borderRadius="lg" onClick={() => setOffset(offset - LIMIT)} isDisabled={!hasPrev}>
+            <Button size="sm" variant="outline" borderRadius="lg" onClick={() => dispatch(setReportsOffset(offset - LIMIT))} isDisabled={!hasPrev}>
               Prev
             </Button>
-            <Button size="sm" variant="outline" borderRadius="lg" onClick={() => setOffset(offset + LIMIT)} isDisabled={!hasNext}>
+            <Button size="sm" variant="outline" borderRadius="lg" onClick={() => dispatch(setReportsOffset(offset + LIMIT))} isDisabled={!hasNext}>
               Next
             </Button>
           </HStack>

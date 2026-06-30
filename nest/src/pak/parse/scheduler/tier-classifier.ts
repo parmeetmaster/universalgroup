@@ -14,6 +14,8 @@ export interface TierInputs {
   >;
   /** Max airDate of episodes for this drama, or null if none. */
   lastEpisodeAt: Date | null;
+  /** Whether the drama has at least one active source link. */
+  hasActiveSourceLink?: boolean;
   /** Reference clock (default: now). Injectable for tests. */
   now?: Date;
 }
@@ -29,8 +31,8 @@ const DAY = 86_400_000;
  *   frozen -- don't scan. Completed shows, explicitly frozen rows, or
  *             dramas without a sourceUrl.
  */
-export function classify({ drama, lastEpisodeAt, now = new Date() }: TierInputs): ParseTier {
-  if (!drama.sourceUrl) return 'frozen';
+export function classify({ drama, lastEpisodeAt, hasActiveSourceLink, now = new Date() }: TierInputs): ParseTier {
+  if (!drama.sourceUrl && !hasActiveSourceLink) return 'frozen';
   if (drama.parseFrozenUntil && drama.parseFrozenUntil.getTime() > now.getTime()) {
     return 'frozen';
   }

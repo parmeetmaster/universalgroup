@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/app_cached_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/ads/ad_service.dart';
+import '../../../../core/config/app_config_store.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/spacing.dart';
@@ -61,9 +63,10 @@ class _DetailView extends StatelessWidget {
               top: false,
               child: ColoredBox(
                 color: AppColors.bg,
-                child: AdService.descriptionBanner,
+                child: AdService.streamOptionBanner,
               ),
             )
+            
           : null,
       body: BlocBuilder<DetailBloc, DetailState>(
         builder: (ctx, state) {
@@ -154,11 +157,12 @@ class _LoadedState extends State<_Loaded> {
 
   Future<void> _shareDrama(BuildContext context, ContentModel content) async {
     final title = content.title;
-    final url = 'https://global.animekill.com/api/pakistani-serials/content/${content.slug}';
-    await Share.share(
-      'Watch $title on Pakistani Serials\n$url',
-      subject: title,
-    );
+    final storeUrl = AppConfigStore.value.playStoreUrl ?? '';
+    final text = StringBuffer('Watch $title on Pakistani Serials');
+    if (storeUrl.isNotEmpty) {
+      text.write('\n\nDownload the app: $storeUrl');
+    }
+    await Share.share(text.toString(), subject: title);
   }
 
   @override
@@ -645,15 +649,11 @@ class _Hero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (resolveImageUrl(content.backdropUrl ?? content.posterUrl) != null)
-            CachedNetworkImage(
-              imageUrl: resolveImageUrl(content.backdropUrl ?? content.posterUrl)!,
-              fit: BoxFit.cover,
-              alignment: const Alignment(0, -0.25),
-              errorWidget: (_, __, ___) => _HeroPlaceholder(title: content.title),
-            )
-          else
-            _HeroPlaceholder(title: content.title),
+          AppCachedImage(
+            imageUrl: content.backdropUrl ?? content.posterUrl,
+            alignment: const Alignment(0, -0.25),
+            errorWidget: _HeroPlaceholder(title: content.title),
+          ),
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -1451,6 +1451,7 @@ class _EpisodeThumbState extends State<_EpisodeThumb> {
           imageUrl: url,
           fit: BoxFit.cover,
           placeholder: (_, __) => Container(color: AppColors.surfaceElevated),
+          errorListener: (_) {},
           errorWidget: (_, __, ___) {
             if (!useFallback && widget.fallbackUrl != null && widget.fallbackUrl != widget.thumbnailUrl) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1529,30 +1530,10 @@ class _RelatedCard extends StatelessWidget {
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: resolveImageUrl(content.posterUrl) != null
-                  ? CachedNetworkImage(
-                      imageUrl: resolveImageUrl(content.posterUrl)!,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      placeholder: (_, __) =>
-                          Container(color: AppColors.surfaceElevated),
-                      errorWidget: (_, __, ___) =>
-                          Container(color: AppColors.surfaceElevated),
-                    )
-                  : Container(
-                      color: AppColors.surfaceElevated,
-                      alignment: Alignment.center,
-                      child: Text(
-                        content.title.isNotEmpty
-                            ? content.title[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          color: AppColors.onSurfaceMuted,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
+              child: AppCachedImage(
+                imageUrl: content.posterUrl,
+                width: double.infinity,
+              ),
             ),
           ),
           const SizedBox(height: 6),

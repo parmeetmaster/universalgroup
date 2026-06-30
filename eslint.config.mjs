@@ -15,6 +15,10 @@ const eslintConfig = defineConfig([
     "nest/**",
     "pakistani_serials/**",
     "super-video-downloader/**",
+    "chinese_drama_app/**",
+    "aviation_news_2/**",
+    "aviationweb/**",
+    "manga browser/**",
   ]),
 ]);
 

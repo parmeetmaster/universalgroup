@@ -19,12 +19,17 @@ import {
   MdBugReport,
   MdDevices,
   MdAnalytics,
+  MdRateReview,
+  MdLiveTv,
+  MdPlayCircle,
+  MdPeople,
 } from "react-icons/md";
 
 export interface NavItem {
   label: string;
   icon: IconType;
   id: string;
+  children?: NavItem[];
 }
 
 export interface AppConfig {
@@ -54,6 +59,7 @@ export const apps: AppConfig[] = [
       { label: "Countries", icon: MdPublic, id: "countries" },
       { label: "Devices", icon: MdDevices, id: "devices" },
       { label: "Site Analytics", icon: MdAnalytics, id: "analytics" },
+      { label: "Rating Feedback", icon: MdRateReview, id: "rating-feedback" },
       { label: "KV Store", icon: MdStorage, id: "kv-store" },
       { label: "Settings", icon: MdSettings, id: "settings" },
     ],
@@ -103,6 +109,21 @@ export const apps: AppConfig[] = [
       { label: "Manga", icon: MdMenuBook, id: "manga" },
       { label: "Genres", icon: MdCategory, id: "genres" },
       { label: "Bookmarks", icon: MdBookmark, id: "bookmarks" },
+      { label: "Settings", icon: MdSettings, id: "settings" },
+    ],
+  },
+  {
+    id: "chinese-drama",
+    name: "Chinese Drama",
+    shortName: "CD",
+    description: "Chinese drama streaming & content management",
+    icon: MdLiveTv,
+    gradient: "linear(135deg, #e53935, #c62828)",
+    apiBase: "https://global.animekill.com/api/chinese-drama",
+    navItems: [
+      { label: "Dashboard", icon: MdDashboard, id: "dashboard" },
+      { label: "Episodes", icon: MdPlayCircle, id: "episodes" },
+      { label: "Users", icon: MdPeople, id: "users" },
       { label: "Settings", icon: MdSettings, id: "settings" },
     ],
   },

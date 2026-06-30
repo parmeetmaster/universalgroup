@@ -73,7 +73,10 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i419.SettingsBloc(gh<_i580.NotificationService>()),
     );
     gh.factory<_i302.SplashCubit>(
-      () => _i302.SplashCubit(gh<_i922.AdService>()),
+      () => _i302.SplashCubit(
+        gh<_i922.AdService>(),
+        gh<_i580.NotificationService>(),
+      ),
     );
     gh.singleton<_i552.AuthInterceptor>(
       () => _i552.AuthInterceptor(gh<_i558.FlutterSecureStorage>()),
@@ -84,17 +87,14 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i372.ApiService>(
       () => _i372.ApiService(gh<_i393.DioClient>()),
     );
-    gh.factory<_i348.SearchBloc>(
-      () => _i348.SearchBloc(gh<_i372.ApiService>()),
-    );
     gh.factory<_i960.SeeAllCubit>(
       () => _i960.SeeAllCubit(gh<_i372.ApiService>()),
     );
+    gh.factory<_i348.SearchBloc>(
+      () => _i348.SearchBloc(gh<_i372.ApiService>()),
+    );
     gh.factory<_i127.BrowseCubit>(
       () => _i127.BrowseCubit(gh<_i372.ApiService>()),
-    );
-    gh.factory<_i1057.SourcesCubit>(
-      () => _i1057.SourcesCubit(gh<_i372.ApiService>()),
     );
     gh.factory<_i920.DetailBloc>(
       () => _i920.DetailBloc(
@@ -103,6 +103,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i585.WatchHistoryService>(),
         gh<_i922.AdService>(),
       ),
+    );
+    gh.factory<_i1057.SourcesCubit>(
+      () => _i1057.SourcesCubit(gh<_i372.ApiService>(), gh<_i922.AdService>()),
     );
     gh.factory<_i824.HomeBloc>(
       () => _i824.HomeBloc(

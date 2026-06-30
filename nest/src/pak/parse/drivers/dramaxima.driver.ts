@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Drama } from '../../entities/drama.entity';
@@ -7,8 +7,17 @@ import { Episode } from '../../entities/episode.entity';
 import { EpisodeVideo } from '../../entities/episode-video.entity';
 import { ParseSource } from '../../entities/parse-source.entity';
 import { ParseRun } from '../../entities/parse-run.entity';
+import { DramaSourceLink } from '../../entities/drama-source-link.entity';
 import { DramaStatusEnum, ParseRunStatusEnum, VideoFormatEnum, VideoQualityEnum } from '../../entities/enums';
 import { PosterHealthService } from '../../services/poster-health.service';
+import {
+  ISourceDriver,
+  DiscoveredDrama,
+  EpisodeLink,
+  SourceFingerprint,
+  DriverImportResult,
+} from './source-driver.interface';
+import { DriverRegistryService } from './driver-registry.service';
 
 export interface DiscoverySummary {
   found: number;
@@ -35,7 +44,8 @@ export interface SitemapEntry {
 }
 
 @Injectable()
-export class PakDramaximaDriver {
+export class PakDramaximaDriver implements ISourceDriver, OnModuleInit {
+  readonly driverSlug = 'dramaxima';
   private readonly logger = new Logger(PakDramaximaDriver.name);
   private static readonly SOURCE_SLUG = 'dramaxima';
   private static readonly SITEMAP_TTL_MS = 3_600_000;
@@ -52,7 +62,63 @@ export class PakDramaximaDriver {
     @InjectRepository(ParseSource, 'pak') private readonly sourceRepo: Repository<ParseSource>,
     @InjectRepository(ParseRun, 'pak') private readonly runRepo: Repository<ParseRun>,
     private readonly posterHealth: PosterHealthService,
+    private readonly registry: DriverRegistryService,
   ) {}
+
+  onModuleInit(): void {
+    this.registry.register(this);
+  }
+
+  // ── ISourceDriver interface ────────────────────────────
+
+  async discoverDramas(): Promise<DiscoveredDrama[]> {
+    const slugs = [
+      ...new Set([
+        ...(await this.discoverCategorySlugs()),
+        ...(await this.discoverEpisodeSlugs()),
+      ]),
+    ];
+    const results: DiscoveredDrama[] = [];
+    for (const slug of slugs) {
+      const sourceUrl = `https://dramaxima.com/${slug}/`;
+      let title = this.titleFromSlug(slug);
+      try {
+        const html = await this.fetchHtml(sourceUrl);
+        const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+        if (titleMatch?.[1]) title = this.cleanTitle(titleMatch[1], slug);
+      } catch { /* slug-based title is fine */ }
+      results.push({ sourceSlug: slug, sourceUrl, title });
+    }
+    return results;
+  }
+
+  async getEpisodeLinks(sourceSlug: string, sourceUrl: string): Promise<EpisodeLink[]> {
+    return this.collectEpisodeLinks(sourceSlug, sourceUrl);
+  }
+
+  async getFingerprint(sourceSlug: string, sourceUrl: string): Promise<SourceFingerprint | null> {
+    const sitemap = await this.loadSitemap();
+    const urls = sitemap.map((e) => e.url);
+    const prefix = await this.deriveEpisodePrefix(sourceSlug, sourceUrl, urls);
+    if (!prefix) return null;
+    const matcher = new RegExp(
+      `/${this.escapeRe(prefix)}(?:-(?:\\d+(?:st|nd|rd|th)-)?last)?-episode-\\d+/?$`,
+    );
+    let max: Date | null = null;
+    let count = 0;
+    for (const e of sitemap) {
+      if (!matcher.test(e.url)) continue;
+      count++;
+      if (e.lastmod && (!max || e.lastmod > max)) max = e.lastmod;
+    }
+    return { latestModified: max, episodeCount: count };
+  }
+
+  async importDrama(drama: Drama, sourceLink: DramaSourceLink): Promise<DriverImportResult> {
+    return this.importDramaInternal(drama, sourceLink.sourceSlug, sourceLink.sourceUrl);
+  }
+
+  // ── Legacy public API (backward compat) ────────────────
 
   async discoverNewDramas(): Promise<DiscoverySummary> {
     const summary: DiscoverySummary = { found: 0, newDramas: 0, created: [], failed: [] };
@@ -329,7 +395,7 @@ export class PakDramaximaDriver {
     // Import episodes first so we have a real episode page to read the poster
     // from; fall back to PosterHealth's external sources when none is found.
     try {
-      await this.importDrama(drama);
+      await this.importDramaLegacy(drama);
     } catch (importErr) {
       this.logger.warn(`Episode import for new drama ${slug} failed: ${(importErr as Error).message}`);
     }
@@ -400,7 +466,7 @@ export class PakDramaximaDriver {
     const drama = await this.dramaRepo.findOne({ where: { slug } });
     if (!drama) throw new NotFoundException(`Drama '${slug}' not found`);
     if (!drama.sourceUrl) throw new NotFoundException(`Drama '${slug}' has no sourceUrl`);
-    return this.importDrama(drama);
+    return this.importDramaLegacy(drama);
   }
 
   async importById(id: string): Promise<ImportSummary> {
@@ -409,7 +475,7 @@ export class PakDramaximaDriver {
     if (!drama.sourceUrl) {
       throw new NotFoundException(`Drama id=${id} has no sourceUrl`);
     }
-    return this.importDrama(drama);
+    return this.importDramaLegacy(drama);
   }
 
   async importAll(): Promise<ImportSummary[]> {
@@ -421,7 +487,7 @@ export class PakDramaximaDriver {
     const out: ImportSummary[] = [];
     for (const d of dramas) {
       try {
-        out.push(await this.importDrama(d));
+        out.push(await this.importDramaLegacy(d));
       } catch (err) {
         this.logger.error(`Import failed for ${d.slug}: ${(err as Error).message}`);
         out.push({
@@ -462,14 +528,22 @@ export class PakDramaximaDriver {
     if (!drama.sourceUrl) {
       throw new NotFoundException(`Drama '${drama.slug}' has no sourceUrl`);
     }
-    return this.importDrama(drama);
+    return this.importDramaInternal(drama, drama.slug, drama.sourceUrl);
   }
 
-  private async importDrama(drama: Drama): Promise<ImportSummary> {
+  private importDramaLegacy(drama: Drama): Promise<ImportSummary> {
+    return this.importDramaInternal(drama, drama.slug, drama.sourceUrl!);
+  }
+
+  private async importDramaInternal(
+    drama: Drama,
+    sourceSlug: string,
+    sourceUrl: string,
+  ): Promise<ImportSummary> {
     const run = await this.runRepo.save(
       this.runRepo.create({
         dramaId: drama.id,
-        targetUrl: drama.sourceUrl,
+        targetUrl: sourceUrl,
         status: ParseRunStatusEnum.RUNNING,
         startedAt: new Date(),
       }),
@@ -488,7 +562,7 @@ export class PakDramaximaDriver {
       const source = await this.ensureSource();
       run.sourceId = source.id;
 
-      const links = await this.collectEpisodeLinks(drama.slug, drama.sourceUrl!);
+      const links = await this.collectEpisodeLinks(sourceSlug, sourceUrl);
       summary.episodesFound = links.length;
       if (links.length === 0) {
         await this.finishRun(run, ParseRunStatusEnum.SUCCESS, 'No episode links', summary);

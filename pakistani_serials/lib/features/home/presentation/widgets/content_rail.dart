@@ -1,4 +1,4 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/app_cached_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -592,17 +592,11 @@ Color _statusColor(String status) {
 }
 
 Widget _buildImage(String? url, double w, double h, String title) {
-  if (url == null || url.isEmpty) {
-    return _ImagePlaceholder(width: w, height: h, title: title);
-  }
-  return CachedNetworkImage(
+  return AppCachedImage(
     imageUrl: url,
-    fit: BoxFit.cover,
     width: w,
     height: h,
-    placeholder: (_, __) => Container(color: AppColors.surfaceElevated),
-    errorWidget: (_, __, ___) =>
-        _ImagePlaceholder(width: w, height: h, title: title),
+    errorWidget: _ImagePlaceholder(width: w, height: h, title: title),
   );
 }
 

@@ -21,7 +21,7 @@ import { FeedbackService } from './feedback.service';
         password: config.get('COMMON_DB_PASS', config.get('ANIME_DB_PASS', '')),
         database: config.get('COMMON_DB_NAME', config.get('ANIME_DB_NAME', 'anime_downloader')),
         entities: [AppFeedbackEntity],
-        synchronize: true,
+        synchronize: false,
         charset: 'utf8mb4',
         timezone: 'Z',
       }),

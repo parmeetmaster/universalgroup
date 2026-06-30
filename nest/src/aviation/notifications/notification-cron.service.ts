@@ -29,10 +29,10 @@ export class NotificationCronService {
     private readonly http: HttpService,
   ) {}
 
-  // Run every 6 hours
-  @Cron('0 */6 * * *')
+  // Run 4 times per day at 8AM, 1PM, 6PM, 9PM IST (2:30, 7:30, 12:30, 15:30 UTC)
+  @Cron('30 2,7,12,15 * * *')
   async scanAndNotify() {
-    this.logger.log('Starting 6-hourly scan for new articles...');
+    this.logger.log('Starting scheduled scan for new articles...');
 
     try {
       const articles = await this.scrapeLatestArticles();
@@ -53,8 +53,8 @@ export class NotificationCronService {
       const newArticles = articles.filter((a) => !sentUrls.has(a.url));
       this.logger.log(`Found ${newArticles.length} new articles to notify`);
 
-      // Send notifications for new articles (max 5 per scan to avoid spam)
-      const toSend = newArticles.slice(0, 5);
+      // Send only 1 notification per scan (4 scans/day = 4 notifications/day)
+      const toSend = newArticles.slice(0, 1);
       let sentCount = 0;
 
       for (const article of toSend) {

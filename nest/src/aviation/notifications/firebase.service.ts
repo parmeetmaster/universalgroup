@@ -50,13 +50,12 @@ export class FirebaseService implements OnModuleInit {
       const message: admin.messaging.Message = {
         topic,
         android: {
-          // Delivery priority only (wakes the app promptly even in doze).
-          // This is NOT the heads-up priority — the app's low-importance channel
-          // keeps the displayed notification silent.
-          priority: 'high',
+          // Normal priority — does not wake device from doze.
+          // App's low-importance channel keeps display silent.
+          priority: 'normal',
         },
         apns: {
-          headers: { 'apns-priority': '10' },
+          headers: { 'apns-priority': '5' },
           payload: {
             aps: {
               // iOS can't reliably render data-only pushes, so show a native

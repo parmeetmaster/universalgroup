@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Flex,
@@ -20,43 +20,40 @@ import {
   FormErrorMessage,
 } from "@chakra-ui/react";
 import { MdSave, MdDelete, MdAdd, MdEdit, MdCancel, MdRefresh } from "react-icons/md";
-
-interface KvEntry {
-  key: string;
-  value: string;
-  updatedAt: string;
-}
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  fetchKvEntries,
+  addKvEntry,
+  updateKvEntry,
+  deleteKvEntry,
+  selectKvEntries,
+  selectKvLoading,
+  selectKvSaving,
+  selectKvDeletingKey,
+} from "@/store/slices/anime/kv-slice";
 
 export function KvStorePanel() {
-  const [entries, setEntries] = useState<KvEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const entries = useAppSelector(selectKvEntries);
+  const loading = useAppSelector(selectKvLoading);
+  const saving = useAppSelector(selectKvSaving);
+  const deletingKey = useAppSelector(selectKvDeletingKey);
+
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
-
-  // New entry form
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [addErrors, setAddErrors] = useState<{ key?: string; value?: string }>({});
-
   const toast = useToast();
 
-  const loadEntries = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/db/anime/kv");
-      const data = await res.json();
-      setEntries(data.entries || []);
-    } catch {
-      toast({ title: "Failed to load KV entries", status: "error", duration: 3000, position: "top-right" });
-    }
-    setLoading(false);
-  }, [toast]);
+  useEffect(() => {
+    dispatch(fetchKvEntries());
+  }, [dispatch]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadEntries(); }, [loadEntries]);
+  const loadEntries = () => {
+    dispatch(fetchKvEntries());
+  };
 
   const validateAdd = (): boolean => {
     const errors: { key?: string; value?: string } = {};
@@ -70,25 +67,17 @@ export function KvStorePanel() {
 
   const handleAdd = async () => {
     if (!validateAdd()) return;
-    setSaving(true);
     try {
-      const res = await fetch("/api/db/anime/kv", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: newKey.trim(), value: newValue }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      await dispatch(addKvEntry({ key: newKey.trim(), value: newValue })).unwrap();
       toast({ title: `Added "${newKey.trim()}"`, status: "success", duration: 2000, position: "top-right" });
       setNewKey("");
       setNewValue("");
       setShowAddForm(false);
       setAddErrors({});
-      await loadEntries();
+      dispatch(fetchKvEntries());
     } catch (e) {
       toast({ title: "Failed to add", description: String(e), status: "error", duration: 3000, position: "top-right" });
     }
-    setSaving(false);
   };
 
   const handleUpdate = async (key: string) => {
@@ -96,43 +85,27 @@ export function KvStorePanel() {
       toast({ title: "Value cannot be empty", status: "warning", duration: 2000, position: "top-right" });
       return;
     }
-    setSaving(true);
     try {
-      const res = await fetch("/api/db/anime/kv", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, value: editValue }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      await dispatch(updateKvEntry({ key, value: editValue })).unwrap();
       toast({ title: `Updated "${key}"`, status: "success", duration: 2000, position: "top-right" });
       setEditingKey(null);
-      await loadEntries();
+      dispatch(fetchKvEntries());
     } catch (e) {
       toast({ title: "Failed to update", description: String(e), status: "error", duration: 3000, position: "top-right" });
     }
-    setSaving(false);
   };
 
   const handleDelete = async (key: string) => {
-    setDeleting(key);
     try {
-      const res = await fetch("/api/db/anime/kv", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      await dispatch(deleteKvEntry(key)).unwrap();
       toast({ title: `Deleted "${key}"`, status: "info", duration: 2000, position: "top-right" });
-      await loadEntries();
+      dispatch(fetchKvEntries());
     } catch (e) {
       toast({ title: "Failed to delete", description: String(e), status: "error", duration: 3000, position: "top-right" });
     }
-    setDeleting(null);
   };
 
-  const startEdit = (entry: KvEntry) => {
+  const startEdit = (entry: { key: string; value: string }) => {
     setEditingKey(entry.key);
     setEditValue(entry.value);
   };
@@ -240,7 +213,7 @@ export function KvStorePanel() {
                 ) : (
                   <>
                     <IconButton aria-label="Edit" icon={<MdEdit />} size="xs" variant="ghost" color="gray.400" _hover={{ color: "brand.600", bg: "brand.50" }} borderRadius="lg" onClick={() => startEdit(entry)} />
-                    <IconButton aria-label="Delete" icon={<MdDelete />} size="xs" variant="ghost" color="gray.400" _hover={{ color: "red.500", bg: "red.50" }} borderRadius="lg" onClick={() => handleDelete(entry.key)} isLoading={deleting === entry.key} />
+                    <IconButton aria-label="Delete" icon={<MdDelete />} size="xs" variant="ghost" color="gray.400" _hover={{ color: "red.500", bg: "red.50" }} borderRadius="lg" onClick={() => handleDelete(entry.key)} isLoading={deletingKey === entry.key} />
                   </>
                 )}
               </HStack>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import {
   Box,
   Flex,
@@ -19,6 +19,8 @@ import {
   Badge,
 } from "@chakra-ui/react";
 import { MdSave, MdRefresh } from "react-icons/md";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { pakConfigActions, pakConfigThunks, pakConfigSelectors } from "@/store/slices/pak/config-slice";
 
 interface PakConfig {
   min_app_version: string;
@@ -33,76 +35,34 @@ interface PakConfig {
   terms_url: string;
 }
 
-const DEFAULTS: PakConfig = {
-  min_app_version: "1.0.0",
-  latest_app_version: "1.0.0",
-  force_update: false,
-  maintenance_mode: false,
-  maintenance_message: "",
-  announcement: "",
-  play_store_url: "",
-  support_email: "",
-  privacy_url: "",
-  terms_url: "",
-};
-
 export function PakConfigForm() {
-  const [config, setConfig] = useState<PakConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const dispatch = useAppDispatch();
+  const rawConfig = useAppSelector(pakConfigSelectors.selectConfig);
+  const loading = useAppSelector(pakConfigSelectors.selectLoading) as boolean;
+  const saving = useAppSelector(pakConfigSelectors.selectSaving) as boolean;
+  const dirty = useAppSelector(pakConfigSelectors.selectDirty) as boolean;
   const toast = useToast();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/db/pak/config");
-      const data = await res.json();
-      const c = data.config || {};
-      setConfig({
-        min_app_version: String(c.min_app_version ?? DEFAULTS.min_app_version),
-        latest_app_version: String(c.latest_app_version ?? DEFAULTS.latest_app_version),
-        force_update: Boolean(c.force_update ?? DEFAULTS.force_update),
-        maintenance_mode: Boolean(c.maintenance_mode ?? DEFAULTS.maintenance_mode),
-        maintenance_message: String(c.maintenance_message ?? ""),
-        announcement: String(c.announcement ?? ""),
-        play_store_url: String(c.play_store_url ?? ""),
-        support_email: String(c.support_email ?? ""),
-        privacy_url: String(c.privacy_url ?? ""),
-        terms_url: String(c.terms_url ?? ""),
-      });
-    } catch {
-      toast({ title: "Failed to load config", status: "error", duration: 3000, position: "top-right" });
-    }
-    setLoading(false);
-    setDirty(false);
-  }, [toast]);
+  const config = rawConfig as PakConfig | null;
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { dispatch(pakConfigThunks.fetchConfig()); }, [dispatch]);
 
   const update = (patch: Partial<PakConfig>) => {
-    setConfig((prev) => prev ? { ...prev, ...patch } : prev);
-    setDirty(true);
+    dispatch(pakConfigActions.updateConfig(patch));
+  };
+
+  const load = () => {
+    dispatch(pakConfigThunks.fetchConfig());
   };
 
   const save = async () => {
     if (!config) return;
-    setSaving(true);
     try {
-      const res = await fetch("/api/db/pak/config", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      await dispatch(pakConfigThunks.saveConfig(config as unknown as Record<string, unknown>)).unwrap();
       toast({ title: "Config saved", status: "success", duration: 2000, position: "top-right" });
-      setDirty(false);
     } catch (e) {
       toast({ title: "Failed to save", description: String(e), status: "error", duration: 3000, position: "top-right" });
     }
-    setSaving(false);
   };
 
   if (loading) return <Flex justify="center" py={10}><Spinner color="brand.500" /></Flex>;

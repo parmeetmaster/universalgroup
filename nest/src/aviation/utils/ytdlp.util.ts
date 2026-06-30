@@ -32,29 +32,56 @@ interface CachedStream {
 const streamCache = new Map<string, CachedStream>();
 const CACHE_TTL_MS = 50 * 60 * 1000; // 50 minutes (streaming URLs expire ~1 hour)
 
-function runYtDlp(args: string[], timeoutMs = 30000): Promise<string> {
-  const authArgs = hasOAuthToken()
-    ? ['--username', 'oauth2', '--password', '']
-    : hasCookies()
-      ? ['--cookies', COOKIES_PATH]
-      : [];
+// Semaphore: only 1 yt-dlp process at a time to avoid CPU spikes
+const MAX_CONCURRENT = 1;
+let running = 0;
+const queue: Array<() => void> = [];
 
-  const baseArgs = [
-    ...authArgs,
-    '--no-warnings',
-    ...args,
-  ];
+function acquireSlot(): Promise<void> {
+  if (running < MAX_CONCURRENT) {
+    running++;
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => queue.push(resolve));
+}
 
-  return new Promise((resolve, reject) => {
-    execFile('yt-dlp', baseArgs, { timeout: timeoutMs }, (err, stdout, stderr) => {
-      if (err) {
-        const msg = stderr?.trim() || err.message;
-        reject(new Error(msg));
-        return;
-      }
-      resolve(stdout.trim());
+function releaseSlot(): void {
+  const next = queue.shift();
+  if (next) {
+    next();
+  } else {
+    running--;
+  }
+}
+
+export async function runYtDlp(args: string[], timeoutMs = 30000): Promise<string> {
+  await acquireSlot();
+  try {
+    const authArgs = hasOAuthToken()
+      ? ['--username', 'oauth2', '--password', '']
+      : hasCookies()
+        ? ['--cookies', COOKIES_PATH]
+        : [];
+
+    const baseArgs = [
+      ...authArgs,
+      '--no-warnings',
+      ...args,
+    ];
+
+    return await new Promise((resolve, reject) => {
+      execFile('yt-dlp', baseArgs, { timeout: timeoutMs }, (err, stdout, stderr) => {
+        if (err) {
+          const msg = stderr?.trim() || err.message;
+          reject(new Error(msg));
+          return;
+        }
+        resolve(stdout.trim());
+      });
     });
-  });
+  } finally {
+    releaseSlot();
+  }
 }
 
 export async function getVideoMetadata(youtubeUrl: string): Promise<VideoMetadata> {

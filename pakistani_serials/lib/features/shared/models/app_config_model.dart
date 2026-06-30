@@ -10,6 +10,8 @@ class AppConfigModel {
     this.supportEmail,
     this.privacyUrl,
     this.termsUrl,
+    this.notificationStartTime,
+    this.notificationEndTime,
   });
 
   factory AppConfigModel.fromJson(Map<String, dynamic> json) => AppConfigModel(
@@ -23,6 +25,10 @@ class AppConfigModel {
         supportEmail: json['supportEmail'] as String?,
         privacyUrl: json['privacyUrl'] as String?,
         termsUrl: json['termsUrl'] as String?,
+        notificationStartTime:
+            json['notification_start_time'] as String?,
+        notificationEndTime:
+            json['notification_end_time'] as String?,
       );
 
   final String minAppVersion;
@@ -35,6 +41,8 @@ class AppConfigModel {
   final String? supportEmail;
   final String? privacyUrl;
   final String? termsUrl;
+  final String? notificationStartTime;
+  final String? notificationEndTime;
 
   static const fallback = AppConfigModel(
     minAppVersion: '1.0.0',

@@ -12,6 +12,7 @@ import { DeviceGraceEntity } from './devices/entities/device-grace.entity';
 import { ProxyEntity } from './proxy/entities/proxy.entity';
 import { VpnConfigEntity } from './proxy/entities/vpn-config.entity';
 import { SiteVisitEntity } from './analytics/entities/site-visit.entity';
+import { AppFeedbackEntity } from './feedback/entities/app-feedback.entity';
 import { ScraperModule } from './scraper/scraper.module';
 import { DiffModule } from './diff/diff.module';
 import { FcmModule } from './fcm/fcm.module';
@@ -24,6 +25,7 @@ import { PollerModule } from './poller/poller.module';
 import { LegacyModule } from './legacy/legacy.module';
 import { ProxyModule } from './proxy/proxy.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { FeedbackModule } from './feedback/feedback.module';
 import { AnimeController } from './anime.controller';
 
 @Module({
@@ -51,8 +53,9 @@ import { AnimeController } from './anime.controller';
           ProxyEntity,
           VpnConfigEntity,
           SiteVisitEntity,
+          AppFeedbackEntity,
         ],
-        synchronize: true,
+        synchronize: false,
         charset: 'utf8mb4',
         timezone: 'Z',
       }),
@@ -69,6 +72,7 @@ import { AnimeController } from './anime.controller';
     LegacyModule,
     ProxyModule,
     AnalyticsModule,
+    FeedbackModule,
   ],
   controllers: [AnimeController],
 })

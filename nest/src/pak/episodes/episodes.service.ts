@@ -126,23 +126,36 @@ export class PakEpisodesService {
   }
 
   private async resolveDramaxima(ep: Episode): Promise<ResolvedServer | null> {
-    if (!ep.sourceUrl || !ep.sourceUrl.includes('dramaxima.com')) return null;
+    if (!ep.sourceUrl) return null;
+
+    // DramaSpice and DramaXima host the same content — convert to DramaXima
+    // URL where video iframe extraction works
+    let resolvedUrl = ep.sourceUrl;
+    if (ep.sourceUrl.includes('dramaspice.net')) {
+      resolvedUrl = ep.sourceUrl.replace('dramaspice.net', 'dramaxima.com');
+    }
+
+    if (!resolvedUrl.includes('dramaxima.com')) {
+      return null;
+    }
+
     try {
-      const directUrl = await this.dramaxima.extractDirectVideoUrl(ep.sourceUrl);
+      const directUrl = await this.dramaxima.extractDirectVideoUrl(resolvedUrl);
       if (directUrl) {
         return { label: 'No Ad Server', url: directUrl, format: 'mp4' };
       }
-      const iframe = await this.dramaxima.extractIframe(ep.sourceUrl);
+      const iframe = await this.dramaxima.extractIframe(resolvedUrl);
       if (iframe) {
         return { label: 'No Ad Server', url: iframe, format: 'embed' };
       }
     } catch (err) {
       this.logger.warn(
-        `dramaxima resolve ${ep.sourceUrl} failed: ${(err as Error).message}`,
+        `dramaxima resolve ${resolvedUrl} failed: ${(err as Error).message}`,
       );
     }
     return null;
   }
+
 
   private async scoreHits(
     hits: SearxResult[],

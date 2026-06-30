@@ -29,6 +29,13 @@ const common = {
   MANGA_DB_PASS: 'asd1236547899',
   MANGA_DB_NAME: 'manga_app',
 
+  // Chinese Drama DB
+  CHINESE_DRAMA_DB_HOST: '127.0.0.1',
+  CHINESE_DRAMA_DB_PORT: '3306',
+  CHINESE_DRAMA_DB_USER: 'chinese_drama',
+  CHINESE_DRAMA_DB_PASS: 'asd1236547899',
+  CHINESE_DRAMA_DB_NAME: 'chinese_drama',
+
   // Animekill App DB (auth)
   ANIMEKILL_APP_DB_HOST: '127.0.0.1',
   ANIMEKILL_APP_DB_PORT: '3306',

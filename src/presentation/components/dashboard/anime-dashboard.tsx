@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   SimpleGrid,
   Box,
@@ -25,7 +25,24 @@ import {
   MdDelete,
 } from "react-icons/md";
 import { useApp } from "@/presentation/providers/app-context";
-import { useDb } from "@/presentation/hooks/use-db";
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  fetchAnimeDashboard,
+  triggerScrape,
+  selectAnimeLoading,
+  selectAnimeStats,
+  selectAnimeCountries,
+  selectAnimeBlocked,
+  selectAnimeKvEntries,
+  selectAnimeScraping,
+  selectAnimeScrapeResult,
+} from "@/store/slices/anime/dashboard-slice";
+import {
+  blockCountry,
+  unblockCountry,
+  selectLocalBlocked,
+  selectCountryActionLoading,
+} from "@/store/slices/anime/countries-slice";
 import { StatCard } from "./stat-card";
 import { KvStorePanel } from "./kv-store-panel";
 import { AppConfigForm } from "./app-config-form";
@@ -33,38 +50,31 @@ import { ErrorReportsPanel } from "./error-reports-panel";
 import { ScraperPanel } from "./scraper-panel";
 import { DevicesPanel } from "./devices-panel";
 import { SiteAnalyticsPanel } from "./site-analytics-panel";
-
-interface AnimeData {
-  stats: { seenEpisodes: number; registeredCountries: number; blockedCountries: number; kvEntries: number };
-  countries: string[];
-  blocked: string[];
-  kvEntries: Array<{ key: string; value: string }>;
-}
+import { RatingFeedbackPanel } from "./rating-feedback-panel";
 
 function DashboardPanel() {
-  const { data, loading } = useDb<AnimeData>("anime");
+  const dispatch = useAppDispatch();
+  const loading = useAppSelector(selectAnimeLoading);
+  const s = useAppSelector(selectAnimeStats);
+  const kvEntries = useAppSelector(selectAnimeKvEntries);
+  const scraping = useAppSelector(selectAnimeScraping);
+  const pollResult = useAppSelector(selectAnimeScrapeResult);
   const toast = useToast();
-  const [scraping, setScraping] = useState(false);
-  const [pollResult, setPollResult] = useState<string | null>(null);
 
-  const triggerAction = async (endpoint: string, label: string) => {
-    setScraping(true);
-    setPollResult(null);
+  useEffect(() => {
+    dispatch(fetchAnimeDashboard());
+  }, [dispatch]);
+
+  const handleScrape = async () => {
     try {
-      const res = await fetch(`/api/db/anime/scrape`, { method: "POST" });
-      const data = await res.json();
-      setPollResult(JSON.stringify(data, null, 2));
-      toast({ title: `${label} completed`, status: "success", duration: 3000, position: "top-right" });
-    } catch (e) {
-      setPollResult(`Error: ${e instanceof Error ? e.message : "Failed"}`);
-      toast({ title: `${label} failed`, status: "error", duration: 3000, position: "top-right" });
+      await dispatch(triggerScrape()).unwrap();
+      toast({ title: "Scrape completed", status: "success", duration: 3000, position: "top-right" });
+    } catch {
+      toast({ title: "Scrape failed", status: "error", duration: 3000, position: "top-right" });
     }
-    setScraping(false);
   };
 
   if (loading) return <Flex justify="center" py={10}><Spinner color="brand.500" /></Flex>;
-
-  const s = data?.stats;
 
   return (
     <Flex direction="column" gap={5}>
@@ -79,16 +89,16 @@ function DashboardPanel() {
         <Box bg="white" border="1px" borderColor="gray.100" borderRadius="2xl" p={5} boxShadow="0 1px 3px rgba(0,0,0,0.04)">
           <Text fontSize="md" fontWeight="700" color="gray.800" mb={3}>Scraper Actions</Text>
           <Flex gap={3}>
-            <Button onClick={() => triggerAction("scrape", "Scrape")} isLoading={scraping} size="sm" colorScheme="brand" borderRadius="lg" leftIcon={<MdRefresh />}>Trigger Scrape</Button>
+            <Button onClick={handleScrape} isLoading={scraping} size="sm" colorScheme="brand" borderRadius="lg" leftIcon={<MdRefresh />}>Trigger Scrape</Button>
           </Flex>
           {pollResult && <Code display="block" mt={3} p={3} borderRadius="lg" fontSize="xs" whiteSpace="pre-wrap" maxH="200px" overflowY="auto" bg="gray.50">{pollResult}</Code>}
         </Box>
 
         <Box bg="white" border="1px" borderColor="gray.100" borderRadius="2xl" p={5} boxShadow="0 1px 3px rgba(0,0,0,0.04)">
           <Text fontSize="md" fontWeight="700" color="gray.800" mb={3}>KV Store</Text>
-          {data?.kvEntries && data.kvEntries.length > 0 ? (
+          {kvEntries && kvEntries.length > 0 ? (
             <VStack spacing={2} align="stretch">
-              {data.kvEntries.map((e: { key: string; value: string }) => (
+              {kvEntries.map((e: { key: string; value: string }) => (
                 <Flex key={e.key} justify="space-between" p={2} borderRadius="lg" bg="gray.50">
                   <Code fontSize="sm" bg="brand.50" color="brand.700" borderRadius="md" px={2}>{e.key}</Code>
                   <Text fontSize="sm" color="gray.600">{typeof e.value === "string" ? e.value : JSON.stringify(e.value)}</Text>
@@ -115,55 +125,43 @@ function countryName(code: string): string {
 }
 
 function CountriesPanel() {
-  const { data, loading } = useDb<AnimeData>("anime");
+  const dispatch = useAppDispatch();
+  const loading = useAppSelector(selectAnimeLoading);
+  const countries = useAppSelector(selectAnimeCountries);
+  const serverBlocked = useAppSelector(selectAnimeBlocked);
+  const localBlocked = useAppSelector(selectLocalBlocked);
+  const actionLoading = useAppSelector(selectCountryActionLoading);
   const [newCountry, setNewCountry] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
   const toast = useToast();
-  const [localBlocked, setLocalBlocked] = useState<string[] | null>(null);
 
-  const blocked = useMemo(() => localBlocked ?? data?.blocked ?? [], [localBlocked, data?.blocked]);
-  const countries = data?.countries ?? [];
+  useEffect(() => {
+    dispatch(fetchAnimeDashboard());
+  }, [dispatch]);
+
+  const blocked = useMemo(() => localBlocked ?? serverBlocked, [localBlocked, serverBlocked]);
 
   const addBlocked = useCallback(async () => {
     if (!newCountry.trim() || newCountry.trim().length !== 2) {
       toast({ title: "Enter 2-letter country code", status: "warning", duration: 2000, position: "top-right" });
       return;
     }
-    setActionLoading(true);
     try {
-      const res = await fetch("/api/db/anime/countries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ country: newCountry.trim() }),
-      });
-      const d = await res.json();
-      if (d.error) throw new Error(d.error);
-      setLocalBlocked([...blocked, d.country]);
+      const result = await dispatch(blockCountry(newCountry.trim())).unwrap();
       setNewCountry("");
-      toast({ title: `Blocked ${d.country}`, status: "success", duration: 2000, position: "top-right" });
+      toast({ title: `Blocked ${result}`, status: "success", duration: 2000, position: "top-right" });
     } catch (e) {
       toast({ title: "Failed to block country", description: String(e), status: "error", duration: 3000, position: "top-right" });
     }
-    setActionLoading(false);
-  }, [newCountry, blocked, toast]);
+  }, [newCountry, dispatch, toast]);
 
   const removeBlocked = useCallback(async (cc: string) => {
-    setActionLoading(true);
     try {
-      const res = await fetch("/api/db/anime/countries", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ country: cc }),
-      });
-      const d = await res.json();
-      if (d.error) throw new Error(d.error);
-      setLocalBlocked(blocked.filter((c) => c !== cc));
+      await dispatch(unblockCountry(cc)).unwrap();
       toast({ title: `Unblocked ${cc}`, status: "success", duration: 2000, position: "top-right" });
     } catch (e) {
       toast({ title: "Failed to unblock", description: String(e), status: "error", duration: 3000, position: "top-right" });
     }
-    setActionLoading(false);
-  }, [blocked, toast]);
+  }, [dispatch, toast]);
 
   if (loading) return <Flex justify="center" py={10}><Spinner color="brand.500" /></Flex>;
 
@@ -257,6 +255,7 @@ export function AnimeDashboard() {
   if (activePage === "countries") return <CountriesPanel />;
   if (activePage === "devices") return <DevicesPanel />;
   if (activePage === "analytics") return <SiteAnalyticsPanel />;
+  if (activePage === "rating-feedback") return <RatingFeedbackPanel />;
   if (activePage === "kv-store") return (
     <Flex direction="column" gap={4}>
       <AppConfigForm />
