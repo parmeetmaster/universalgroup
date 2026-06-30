@@ -62,4 +62,15 @@ nest/node_modules/
 # iOS
 **/Pods/
 **/*.xcworkspace
-pakistani_serials/android/play-store-key.json
+# Secrets / signing keys
+**/play-store-key.json
+**/google-services.json
+*.jks
+*.keystore
+*.p12
+**/fastlane/report.xml
+**/ads.properties
+
+# Submodule build artifacts
+**/vendor/
+**/.bundle/
